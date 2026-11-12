@@ -15,7 +15,7 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 20/100.** Current branch: `chore/project-setup`; Linear: MIS-5 / MIS-6 / MIS-7. Implementation authorized by the user on 2026-11-11. Branch 1 still requires its focused PR and user review; branch 2 has not started.
+**Fully verified total: 20/100.** Current branch: `abdul2shaik/mis-5-01-choreproject-setup` (foundation milestone); Linear: MIS-5 / MIS-6 / MIS-7. Implementation authorized by the user on 2026-11-11. Branch 1 still requires its focused PR and user review; branch 2 has not started. The user requested the canonical Linear-generated branch name on 2026-11-12; this renames the same workstream and adds no milestone.
 
 ## G1: required evidence
 
@@ -60,7 +60,7 @@ The new tests verify an operator-triggered refresh and that an unavailable conne
 
 All **12 required decision elements** were audited against the actual foundation and the remaining plan. The model snapshot is proposed/configurable; live access, rates and model quality have not been tested, and no paid call is claimed. Official structured-output/model documentation was checked when finalizing the choice.
 
-Repository audit: **40 required project files** exactly match the Git allowlist. The local PDF, environment secrets, raw validation output, dependency/build directories and scratch-file examples are ignored. Font license notices are required distribution material. The frontend-design skill itself is outside this repository. `git diff --check` passed.
+Repository audit: **39 required project files** exactly match the Git allowlist after keeping the implementation plan local and ignored. The assignment PDF, environment secrets, raw validation output, dependency/build directories and scratch-file examples are also ignored. Font license notices are required distribution material. The frontend-design skill itself is outside this repository. `git diff --check` passed. The README links the required tool-choice document and rubric evidence; it does not link the local planning file.
 
 The application's code/configuration is unchanged since the successful 2026-11-12 run: **9 backend + 5 frontend tests**, TypeScript checking and production build passed; Compose services/HTTP checks passed. G2 changes are documentation and its exact ignore exception, so no artificial behavioral test was added.
 

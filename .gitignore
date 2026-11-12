@@ -21,7 +21,6 @@ tmp/
 # Required files currently present. Extend deliberately during implementation.
 !/.gitignore
 !/README.md
-!/PLAN.md
 
 # Branch 1: required runtime/build inputs, application shell, and TDD checks.
 !/Makefile
