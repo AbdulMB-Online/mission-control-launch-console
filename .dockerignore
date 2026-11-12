@@ -1,0 +1,16 @@
+*
+!backend/
+!backend/**
+!frontend/
+!frontend/**
+!docker/
+!docker/**
+!scripts/
+!scripts/**
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/*.sqlite*
+**/.env
