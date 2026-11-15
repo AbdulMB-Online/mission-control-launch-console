@@ -1,10 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
+import json
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.reports import Report
+from app.domain.launch_rules import Violation
 from app.infrastructure.models import ReportRow
 
 
@@ -22,6 +24,13 @@ class SQLAlchemyReportStore:
             fuel_pct=format(report.fuel_pct, "f"),
             note=report.note,
             created_at=report.created_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+            verdict=report.verdict,
+            violations_json=json.dumps([
+                {"field": item.field, "observed": format(item.observed, "f"), "operator": item.operator,
+                 "limit": format(item.limit, "f"), "message": item.message}
+                for item in report.violations
+            ]),
+            rule_version=report.rule_version,
         )
         async with self.sessions() as session:
             session.add(row)
@@ -54,4 +63,12 @@ class SQLAlchemyReportStore:
             fuel_pct=Decimal(row.fuel_pct),
             note=row.note,
             created_at=datetime.fromisoformat(row.created_at.replace("Z", "+00:00")),
+            verdict=row.verdict,
+            violations=tuple(
+                Violation(
+                    field=item["field"], observed=Decimal(item["observed"]), operator=item["operator"],
+                    limit=Decimal(item["limit"]), message=item["message"],
+                ) for item in json.loads(row.violations_json)
+            ),
+            rule_version=row.rule_version,
         )

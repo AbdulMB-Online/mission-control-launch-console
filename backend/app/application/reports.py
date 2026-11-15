@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.application.ports import ReportStore
+from app.domain.launch_rules import assess_launch
 from app.domain.reports import Report, ReportInput
 
 
@@ -21,7 +22,12 @@ class ReportService:
         self.clock = clock
 
     async def file(self, submission: ReportInput) -> Report:
-        report = Report(**asdict(submission), id=str(uuid4()), created_at=self.clock())
+        created_at = self.clock()
+        decision = assess_launch(submission.wind_knots, submission.temp_c, submission.fuel_pct)
+        report = Report(
+            **asdict(submission), id=str(uuid4()), created_at=created_at,
+            verdict=decision.verdict, violations=decision.violations, rule_version=decision.rule_version,
+        )
         await self.store.save(report)
         return report
 

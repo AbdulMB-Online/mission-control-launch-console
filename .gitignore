@@ -83,3 +83,11 @@ tmp/
 !/frontend/src/api/reports.ts
 !/frontend/src/features/reports/ReportForm.tsx
 !/frontend/src/features/reports/ReportWorkspace.tsx
+
+# MIS-10 / G4: approved launch-rule behavior tests.
+!/backend/tests/test_launch_rules.py
+!/backend/tests/test_launch_rules_api.py
+
+# Approved G4 implementation: Python decisions and historical data migration.
+!/backend/app/domain/launch_rules.py
+!/backend/migrations/versions/0003_launch_decisions.py

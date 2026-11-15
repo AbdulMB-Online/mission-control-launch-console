@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
 from app.domain.reports import Report, ReportInput
+from app.domain.launch_rules import Verdict
 
 
 def parse_reading(value: object) -> Decimal:
@@ -30,6 +31,14 @@ class ReportCreate(BaseModel):
         return ReportInput(**self.model_dump())
 
 
+class ViolationRead(BaseModel):
+    field: str
+    observed: str
+    operator: str
+    limit: str
+    message: str
+
+
 class ReportRead(BaseModel):
     id: str
     engineer_name: str
@@ -39,6 +48,9 @@ class ReportRead(BaseModel):
     fuel_pct: str
     note: str
     created_at: str
+    verdict: Verdict
+    violations: list[ViolationRead]
+    rule_version: str
 
     @classmethod
     def from_report(cls, report: Report) -> "ReportRead":
@@ -51,6 +63,12 @@ class ReportRead(BaseModel):
             fuel_pct=format(report.fuel_pct, "f"),
             note=report.note,
             created_at=report.created_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+            verdict=report.verdict,
+            violations=[ViolationRead(
+                field=item.field, observed=format(item.observed, "f"), operator=item.operator,
+                limit=format(item.limit, "f"), message=item.message,
+            ) for item in report.violations],
+            rule_version=report.rule_version,
         )
 
 

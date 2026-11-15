@@ -7,7 +7,7 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G1 | Working README start/test commands | 10 | Passed | 10/10 |
 | G2 | Four technology decisions | 10 | Passed | 10/10 |
 | G3 | Filing, validation and persistence | 10 | Passed | 10/10 |
-| G4 | Python launch limits | 15 | Not started | Not assessed |
+| G4 | Python launch limits | 15 | Passed | 15/15 |
 | G5 | Severity and deadlines | 10 | Not started | Not assessed |
 | G6 | Structured classification and fallback | 10 | Not started | Not assessed |
 | G7 | Concurrent checks and injection protection | 10 | Not started | Not assessed |
@@ -15,7 +15,7 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 30/100.** MIS-5 is complete: merged PR #1 verified at main commit `252b0a1` on 2026-11-12. Current branch: `abdul2shaik/mis-8-02-featurereport-processing`. G3 / MIS-9 is verified after explicit user approval. G4/G5 implementation has not started; each requires its own red-test review and approval.
+**Fully verified total: 45/100.** MIS-5 is complete: merged PR #1 verified at main commit `252b0a1` on 2026-11-12. Current branch: `abdul2shaik/mis-8-02-featurereport-processing`. G3 and G4 are verified after separate explicit user approvals. G5 requires its own red-test review and approval before implementation.
 
 ## G1: required evidence
 
@@ -101,3 +101,35 @@ After approval, implemented the six-field form, a typed API, an independent repo
 | Required-file audit | 58 required files exactly match the ignore allowlist. Local plan, PDF, secrets, databases, logs, generated outputs and dependencies remain ignored. `git diff --check` passed. |
 
 G3 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **30/100**. Visual browser review remains unverified; no visual QA claim is made. This gate covers filing, validation and persistence only. Python verdicts, severity/deadlines and model processing receive no advance credit. MIS-8 remains in progress until G4 and G5 pass and its focused PR is reviewed and merged.
+
+## G4 / MIS-10: red checkpoint, 2026-11-15
+
+Same branch: `abdul2shaik/mis-8-02-featurereport-processing`. Passing G3 implementation committed at `2df2bf4`; it has not been pushed. The user approved this batch with **“lets continue”** after the expected-red explanation. The following records the checkpoint before implementation.
+
+| New test group | Intended behavior |
+| --- | --- |
+| 13 boundary cases, each at the use-case and API boundaries | Wind 24.999/25/25.000 passes and 25.001 fails; temperature 3.999 fails and 4/4.001 passes; fuel 97.999 fails, 98/98.001/99.999/100 passes and 100.001 fails. Exact Decimal comparisons; all other readings stay safe. |
+| Combined violations | Return every violated measurement in fixed wind/temperature/fuel order, for both low and high fuel. Each violation has observed value, operator, limit and a readable message. |
+| Decision ownership | Compute before persistence without a model or DB; domain decision and violations are immutable. Report text requesting either GO or NO_GO cannot select the verdict. |
+| Saved assessment | Filing, read and list expose the same decision/version/violations. Check actual stored columns, then reopen the app and verify the assessment remains intact. |
+| Upgrade existing G3 reports | Migrate a real version-0002 database with an existing above-100 fuel report; preserve every original field and metadata while adding a Python assessment. Repeated startup keeps one report. |
+
+`make test` observed **33 expected failures / 49 existing backend passes** with external networking disabled. Every new failure is a missing authoritative verdict assertion, not a missing import, collection error or failed process setup. The command stops at backend failures, so frontend/build were not rerun in this red cycle; their most recent G3 run passed 9 frontend tests, TypeScript checking and production build.
+
+Only tests, their boundary fixture, exact ignore exceptions and this evidence changed since the passing G3 commit. No launch-rule source or migration has been added. The failing tests remain uncommitted and unpushed. G4 has no score yet; total stays **30/100**. Explain these results and **wait for explicit user approval before implementing G4**. G5 remains untouched. Raw output is ignored at `.local/validation/g4-red.log`.
+
+### G4: approved implementation and green assessment
+
+Implemented `domain/launch_rules.py` using only standard-library dataclasses, Decimal and literal types. The rule function accepts only the three readings, returns every violation in fixed order and produces an immutable result. The filing use case computes the decision before committing it with the report. Read/list deserialize the saved assessment rather than recalculating it or consulting a model. API schemas expose typed verdicts, rule version and exact decimal violation details.
+
+Migration `0003` backfills existing reports using a frozen v1 rule snapshot and adds required assessment columns plus a verdict check constraint. It preserves original readings, notes, identity and timestamps. Historical migration rules are kept independent of future application/ORM changes.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **82 backend + 9 frontend tests passed**, then TypeScript checking and production build passed. No external network or API key. |
+| Boundaries and ownership | All 33 approved G4 cases pass: 13 boundary cases through each of use case/API, combined violations, immutability, adversarial report text, actual stored columns/restart and upgrade of existing data. |
+| Previous gates | All 49 prior backend and 9 frontend tests remain green, including the real API process restart. |
+| Deployment | `make up` exited 0; API/web healthy after migration. Proxied health and report collection returned HTTP 200 with the expected JSON. |
+| Repository audit | 62 required files exactly match the ignore allowlist. `git diff --check` passed. Local plan, assignment PDF, validation output, dependencies, databases and secrets remain ignored. |
+
+G4 self-assessment: **15/15**, no unmet clauses. Cumulative verified score: **45/100**. This is the launch-limit criterion only; model injection detection and the complete Director display retain their later gates. No G5 implementation or credit yet. MIS-10 and its parent MIS-8 remain in progress.

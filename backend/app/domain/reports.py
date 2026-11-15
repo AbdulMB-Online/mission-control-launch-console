@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from app.domain.launch_rules import Verdict, Violation
+
 
 @dataclass(frozen=True)
 class ReportInput:
@@ -17,3 +19,6 @@ class ReportInput:
 class Report(ReportInput):
     id: str
     created_at: datetime
+    verdict: Verdict
+    violations: tuple[Violation, ...]
+    rule_version: str

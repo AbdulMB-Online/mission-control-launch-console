@@ -12,7 +12,7 @@ Start the app:
 make up
 ```
 
-Open **http://localhost:8080**. Change `WEB_PORT` if 8080 is occupied. Engineers can file reports, view saved reports and retry validation or connection failures without losing their form entries. Launch assessment and model processing are still pending; the UI displays saved readings without claiming launch clearance.
+Open **http://localhost:8080**. Change `WEB_PORT` if 8080 is occupied. Engineers can file reports, view saved reports and retry validation or connection failures without losing their form entries. The API calculates and stores Python launch assessments. The current UI displays saved readings; the full Director assessment display and model processing arrive in later milestones.
 
 Run all current tests, TypeScript checking and the frontend production build:
 
@@ -30,7 +30,7 @@ SQLite lives in the `mission-control_mission-data` Docker volume. `make down` st
 
 ## Report API
 
-`POST /api/v1/reports` accepts the following JSON and returns HTTP 201 with the saved fields, a server-generated UUID, a UTC `created_at` and a `Location` header:
+`POST /api/v1/reports` accepts the following JSON and returns HTTP 201 with the saved fields, a server-generated UUID, a UTC `created_at`, a Python assessment and a `Location` header:
 
 ```json
 {
@@ -43,7 +43,9 @@ SQLite lives in the `mission-control_mission-data` Docker volume. `make down` st
 }
 ```
 
-All six fields are required. Name, station and note are trimmed and limited to 100, 50 and 4000 characters. Readings use decimal strings with up to six integer digits and three decimal places; JSON numbers, exponent notation and nonfinite values are rejected rather than rounded. Wind and fuel must be nonnegative. Readings outside launch limits, including fuel above 100%, are valid anomaly data and are saved for assessment. Extra fields, including verdict and approval metadata, are rejected.
+All six fields are required. Name, station and note are trimmed and limited to 100, 50 and 4000 characters. Readings use decimal strings with up to six integer digits and three decimal places; JSON numbers, exponent notation and nonfinite values are rejected rather than rounded. Wind and fuel must be nonnegative. Readings outside launch limits, including fuel above 100%, are valid anomaly data and are saved with a `no_go` assessment. Extra fields, including verdict and approval metadata, are rejected.
+
+Python requires wind ≤25 knots, temperature ≥4°C and fuel between 98% and 100% inclusive. Any violation produces `verdict: "no_go"`; otherwise the verdict is `"go"`. Responses include `rule_version: "v1"` and `violations`, each containing `field`, `observed`, `operator`, `limit` and `message`. Observed values and limits are decimal strings. All violations are returned in wind/temperature/fuel order. The report and its assessment commit together. Report text has no input into the rule function. Startup migration assesses existing reports with the same v1 limits while preserving original data and timestamps.
 
 `GET /api/v1/reports/{id}` reads one report. `GET /api/v1/reports?limit=20&offset=0` returns `{items, total, limit, offset}`, newest first; limit must be 1–100 and offset nonnegative. Validation errors return HTTP 422 with `{error: {code, message, fields: [{field, message}]}}`. Unknown reports return HTTP 404. Reports are committed before submission succeeds and survive application process restarts.
 
