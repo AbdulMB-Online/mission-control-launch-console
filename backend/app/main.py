@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.api.errors import register_error_handlers
+from app.api.routes import router as report_router
 from app.config import Settings
 from app.infrastructure.db import Database
 
@@ -13,13 +15,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app):
         app.state.database = Database(settings.database_url)
-        await app.state.database.migrate()
         try:
+            await app.state.database.migrate()
             yield
         finally:
             await app.state.database.close()
 
     app = FastAPI(title="Mission Control", lifespan=lifespan)
+    register_error_handlers(app)
+    app.include_router(report_router)
 
     @app.get("/healthz")
     async def health():

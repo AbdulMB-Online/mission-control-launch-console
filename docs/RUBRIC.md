@@ -6,7 +6,7 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | --- | --- | ---: | --- | --- |
 | G1 | Working README start/test commands | 10 | Passed | 10/10 |
 | G2 | Four technology decisions | 10 | Passed | 10/10 |
-| G3 | Filing, validation and persistence | 10 | Not started | Not assessed |
+| G3 | Filing, validation and persistence | 10 | Passed | 10/10 |
 | G4 | Python launch limits | 15 | Not started | Not assessed |
 | G5 | Severity and deadlines | 10 | Not started | Not assessed |
 | G6 | Structured classification and fallback | 10 | Not started | Not assessed |
@@ -15,7 +15,7 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 20/100.** Current branch: `abdul2shaik/mis-5-01-choreproject-setup` (foundation milestone); Linear: MIS-5 / MIS-6 / MIS-7. Implementation authorized by the user on 2026-11-11. Branch 1 still requires its focused PR and user review; branch 2 has not started. The user requested the canonical Linear-generated branch name on 2026-11-12; this renames the same workstream and adds no milestone.
+**Fully verified total: 30/100.** MIS-5 is complete: merged PR #1 verified at main commit `252b0a1` on 2026-11-12. Current branch: `abdul2shaik/mis-8-02-featurereport-processing`. G3 / MIS-9 is verified after explicit user approval. G4/G5 implementation has not started; each requires its own red-test review and approval.
 
 ## G1: required evidence
 
@@ -69,3 +69,35 @@ G2 self-assessment: **10/10**, no unmet clauses. Cumulative full-gate score: **2
 ## User approval checkpoint for future TDD cycles
 
 Added 2026-11-12: announce each new branch and ticket; write tests and observe expected failures; explain their intended behavior and why they failed; then **wait for explicit user approval before implementation**. Record approval in the existing ticket/PR. Silence is not approval. Historical branch-1 work predates this checkpoint. Present each branch for user review; documentation-only changes use completeness audits.
+
+## G3 / MIS-9: red checkpoint, 2026-11-12
+
+Branch: `abdul2shaik/mis-8-02-featurereport-processing`, created from merged main `252b0a1`. The user explicitly approved this batch with **“yes”** after the red-test explanation. The following records the checkpoint before implementation.
+
+| Test group | Intended behavior |
+| --- | --- |
+| API filing/read/list | Persist all six fields, return server-owned UUID/UTC metadata, read records and paginate from stored ordering. |
+| Input validation | Require every field; trim/bound text; reject invalid decimal strings, precision loss, nonfinite values and malformed/negative readings where prohibited. Return clear field messages without saving invalid data. |
+| Trust boundary | Reject engineer-supplied verdict, approval, severity and timestamp metadata. |
+| Safety-data distinction | Accept syntactically valid readings outside launch limits (including fuel 100.001) for later Python limit checking. No launch-rule implementation or G4 credit yet. |
+| Persistence | Preserve saved input and metadata across a new application instance and an actual API process stop/start against the same file-backed database. |
+| Form | Send six fields with decimal strings, show errors without losing inputs, allow network retry and prevent duplicate pending submissions. |
+
+Observed with external network disabled: backend **40 failed / 9 passed**, frontend **4 failed / 5 passed**. All 14 existing foundation tests pass. New backend tests reach the live/in-process app but fail because report routes are absent (404/default error format); the real process starts successfully. New UI tests fail because the File report action/form is absent. No collection/import/socket setup errors are being counted as behavioral evidence.
+
+Only tests, their shared fixture, exact ignore exceptions and this scorecard changed. Production code/migrations remain identical to merged main. No report implementation, G4/G5 work, failing-test commit or push has occurred. **Stop here for the user's test review and explicit implementation approval.** G3 earns no points yet; cumulative verified score stays **20/100**. Raw logs stay ignored in `.local/validation/`.
+
+### G3: approved implementation and green assessment
+
+After approval, implemented the six-field form, a typed API, an independent report use case and SQLAlchemy storage with migration `0002`. Exact decimal text and UTC metadata survive storage without float conversion. Validation rejects unknown privileged properties. The UI renders submitted notes as text, preserves inputs on failure and blocks duplicate submissions while pending.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **49 backend + 9 frontend tests passed**, then TypeScript checking and Vite production build passed. External networking disabled; no API key. |
+| API validation and filing | 38 report API cases cover all six fields, bounds, decimal precision, forged metadata, saved read/list ordering and understandable errors. |
+| Restart durability | Two tests verify a new application instance and a real Uvicorn process stop/start against the same SQLite file. All six fields, ID and timestamp are retained. |
+| Form | Four new component tests cover exact submission, field errors with retained values, network retry and duplicate-pending prevention. Five foundation tests still pass. |
+| Deployment | `make up` exited 0, API and web healthy. Proxied `/healthz` returned expected fake-mode JSON; `/api/v1/reports` returned the real empty persisted collection. |
+| Required-file audit | 58 required files exactly match the ignore allowlist. Local plan, PDF, secrets, databases, logs, generated outputs and dependencies remain ignored. `git diff --check` passed. |
+
+G3 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **30/100**. Visual browser review remains unverified; no visual QA claim is made. This gate covers filing, validation and persistence only. Python verdicts, severity/deadlines and model processing receive no advance credit. MIS-8 remains in progress until G4 and G5 pass and its focused PR is reviewed and merged.

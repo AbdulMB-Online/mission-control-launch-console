@@ -1,45 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { Icon } from './Icon';
+import { ReportWorkspace } from '../features/reports/ReportWorkspace';
 
 type Connection = { status: 'loading' | 'online' | 'error'; provider?: 'fake' | 'openai' };
-type IconName = 'overview' | 'report' | 'shield' | 'refresh' | 'check' | 'guide' | 'lock';
-
-function Icon({ name, className = '' }: { name: IconName; className?: string }) {
-  const shapes: Record<IconName, ReactNode> = {
-    overview: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
-    report: <><path d="M5 3h9l4 4v14H5V3Z" /><path d="M14 3v5h4M8 12h7M8 16h5" /></>,
-    shield: <><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z" /><path d="M9 12h6" /></>,
-    refresh: <><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 6.1A8 8 0 0 1 19 9M5 15a8 8 0 0 0 12.9 2.9" /></>,
-    check: <path d="m5 12 4 4L19 6" />,
-    guide: <><path d="M3 5h7l2 2 2-2h7v15h-7l-2 1-2-1H3V5ZM12 7v14" /><path d="M6 10h3M6 14h3M15 10h3M15 14h3" /></>,
-    lock: <><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></>,
-  };
-  return <svg className={`icon ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>;
-}
-
-function ReportIllustration() {
-  return (
-    <svg className="report-illustration" viewBox="0 0 560 210" fill="none" aria-hidden="true">
-      <path className="flight-track" d="M-15 173C84 173 81 57 189 57h156c89 0 107-48 230-48" />
-      <path className="flight-track secondary" d="M-15 194c101 0 120-72 192-72h188c90 0 91-72 210-72" />
-      <circle cx="113" cy="105" r="22" className="range-ring" /><circle cx="113" cy="105" r="4" className="route-point" />
-      <path d="M113 74v10m0 42v10m-31-31h10m42 0h10" className="range-cross" />
-      <path d="m444 32 10 5-10 5-10-5 10-5Z" className="route-marker" />
-      <rect x="220" y="39" width="132" height="146" rx="8" transform="rotate(10 220 39)" className="sheet rear" />
-      <rect x="208" y="23" width="133" height="152" rx="8" transform="rotate(-9 208 23)" className="sheet middle" />
-      <rect x="216" y="21" width="132" height="154" rx="8" className="sheet front" />
-      <path d="M232 44h7m7 0h28" className="document-caption" /><path d="M232 68h77M232 82h94M232 96h64" className="document-line" />
-      <rect x="232" y="116" width="100" height="36" rx="4" className="document-inset" />
-      <path d="M242 128h38m-38 12h75" className="document-detail" />
-      <circle cx="348" cy="174" r="17" className="document-badge" /><path d="M348 167v14m-7-7h14" className="badge-plus" />
-      <circle cx="388" cy="102" r="3" className="route-point muted" />
-      <path d="M180 39h7m-3.5-3.5v7M392 173h7m-3.5-3.5v7" className="range-cross" />
-    </svg>
-  );
-}
-
 export default function App() {
   const [connection, setConnection] = useState<Connection>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [reportCount, setReportCount] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,22 +66,14 @@ export default function App() {
           <div className="operational-note"><Icon name="shield" /><p>Launch limits are fixed. Briefings always need the Flight Director’s approval.</p><span className="note-end">Human authority</span></div>
 
           <div className="workspace-grid">
-            <section className="report-desk" id="report-workspace" aria-labelledby="report-heading">
-              <header className="desk-header"><div className="desk-title"><span className="section-icon"><Icon name="report" /></span><div><h2 id="report-heading">Report workspace</h2><p>Engineer reports and drafted briefings</p></div></div><span className="pending-label"><span />Filing pending</span></header>
-              <div className="desk-body">
-                <div className="desk-grid" aria-hidden="true" /><ReportIllustration />
-                <div className="empty-copy"><h3>Engineer reports will appear here</h3><p>Readings and anomaly notes come together in a focused review queue, ready for the Flight Director.</p></div>
-                <div className="filing-notice"><Icon name="report" /><span>Report filing is the next milestone.</span></div>
-              </div>
-              <footer className="desk-footer"><span><span className="quiet-dot" />Waiting for report filing</span><span>Every report stays on record</span></footer>
-            </section>
+            <ReportWorkspace refreshToken={attempt} onTotalChange={setReportCount} />
 
             <aside className="readiness-column" aria-label="Operational readiness">
               <section className="assessment-panel" id="launch-status" aria-labelledby="assessment-heading">
                 <header><h2 id="assessment-heading">Launch assessment</h2><Icon name="shield" /></header>
-                <div className="assessment-status"><span />Awaiting readings</div>
+                <div className="assessment-status"><span />{reportCount ? 'Awaiting launch checks' : 'Awaiting readings'}</div>
                 <p className="verdict-placeholder">Not assessed</p>
-                <p className="assessment-explanation">A launch verdict requires wind, temperature, and fuel readings.</p>
+                <p className="assessment-explanation">{reportCount ? 'Reports are saved. Launch assessment is pending.' : 'A launch verdict requires wind, temperature, and fuel readings.'}</p>
                 <div className="assessment-boundary"><Icon name="lock" /><span>Briefing approval does not authorize launch.</span></div>
               </section>
               <section className={`connection-panel ${failed ? 'connection-error' : ''}`} aria-labelledby="connection-heading">

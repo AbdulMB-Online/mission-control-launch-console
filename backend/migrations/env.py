@@ -4,10 +4,11 @@ from alembic import context
 
 from app.config import Settings
 from app.infrastructure.db import Database
+from app.infrastructure.models import Base
 
 
 def run(connection):
-    context.configure(connection=connection, target_metadata=None)
+    context.configure(connection=connection, target_metadata=Base.metadata)
     with context.begin_transaction():
         context.run_migrations()
 
