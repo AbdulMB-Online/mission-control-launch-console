@@ -125,3 +125,11 @@ tmp/
 !/backend/app/application/pipeline.py
 !/backend/migrations/versions/0006_advisory_checks.py
 !/frontend/src/features/reports/ReportChecks.tsx
+
+# MIS-11 / G8: approved bounded draft/evaluation tests.
+!/backend/tests/test_briefing_loop.py
+
+# Approved G8 loop: immutable drafts, bounded use case and persistence migration.
+!/backend/app/domain/briefings.py
+!/backend/app/application/briefings.py
+!/backend/migrations/versions/0007_briefings.py

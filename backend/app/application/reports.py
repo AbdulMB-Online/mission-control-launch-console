@@ -10,6 +10,7 @@ from app.application.llm import LLMRequest, ModelTrace, guarded_generate, model_
 from app.application.ports import LLMGateway, ReportStore
 from app.application.prompts import CLASSIFICATION_PROMPT_VERSION, CLASSIFICATION_SYSTEM, report_data
 from app.application.pipeline import analyze_checks
+from app.application.briefings import briefing_loop
 from app.domain.launch_rules import assess_launch
 from app.domain.reports import Report, ReportInput
 from app.domain.severity import calculate_priority
@@ -102,3 +103,6 @@ class ReportService:
         resolved, traces = await analyze_checks(report, gateway, self.clock)
         await self.store.update_checks(resolved, traces)
         return resolved
+
+    async def generate_briefing(self, report_id: str, gateway: LLMGateway) -> Report:
+        return await briefing_loop(await self.get(report_id), gateway, self.store, self.clock)

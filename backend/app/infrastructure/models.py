@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -21,6 +21,7 @@ class ReportRow(Base):
         ),
         CheckConstraint("verdict = 'go' OR effective_severity = 'high'", name="report_no_go_priority"),
         CheckConstraint("classification_status IN ('not_run', 'completed', 'fallback')", name="report_classification_status"),
+        CheckConstraint("pipeline_status IN ('queued', 'processing', 'completed', 'failed')", name="report_pipeline_status"),
         Index("ix_reports_created_id", "created_at", "id"),
     )
 
@@ -45,6 +46,8 @@ class ReportRow(Base):
     classification_rationale: Mapped[str] = mapped_column(String(500))
     requires_review: Mapped[bool] = mapped_column(Boolean)
     review_reasons_json: Mapped[str] = mapped_column(Text)
+    pipeline_status: Mapped[str] = mapped_column(String(10))
+    error_code: Mapped[str | None] = mapped_column(String(40))
 
 
 class StepTraceRow(Base):
@@ -73,6 +76,7 @@ class StepTraceRow(Base):
     usage_status: Mapped[str] = mapped_column(String(20))
     error_code: Mapped[str | None] = mapped_column(String(40))
     parallel_group: Mapped[str | None] = mapped_column(String(36))
+    round_number: Mapped[int | None] = mapped_column(Integer)
 
 
 class PipelineCheckRow(Base):
@@ -91,3 +95,26 @@ class PipelineCheckRow(Base):
     flagged: Mapped[bool | None] = mapped_column(Boolean)
     details_json: Mapped[str] = mapped_column(Text)
     error_code: Mapped[str | None] = mapped_column(String(40))
+
+
+class BriefingRow(Base):
+    __tablename__ = "briefings"
+    __table_args__ = (
+        UniqueConstraint("report_id", "round_number", name="uq_report_briefing_round"),
+        CheckConstraint("round_number BETWEEN 1 AND 3", name="briefing_round_bound"),
+        CheckConstraint("length(summary) BETWEEN 1 AND 1200", name="briefing_summary_length"),
+        CheckConstraint("evaluation_status IN ('pending', 'accepted', 'needs_revision', 'error')", name="briefing_evaluation_status"),
+        CheckConstraint("is_selected = 0 OR evaluation_status != 'pending'", name="briefing_selectable"),
+        Index("ix_briefings_selected", "report_id", unique=True, sqlite_where=text("is_selected = 1")),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    round_number: Mapped[int] = mapped_column(Integer)
+    summary: Mapped[str] = mapped_column(Text)
+    actions_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(String(27))
+    evaluation_status: Mapped[str] = mapped_column(String(14))
+    feedback_json: Mapped[str] = mapped_column(Text)
+    evaluated_at: Mapped[str | None] = mapped_column(String(27))
+    is_selected: Mapped[bool] = mapped_column(Boolean)

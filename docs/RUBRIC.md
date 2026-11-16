@@ -11,11 +11,11 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G5 | Severity and deadlines | 10 | Passed | 10/10 |
 | G6 | Structured classification and fallback | 10 | Passed | 10/10 |
 | G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
-| G8 | Draft/evaluation and human approval | 10 | Not started | Not assessed |
+| G8 | Draft/evaluation and human approval | 10 | Loop verified; scheduling and human approval open | Not assessed |
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6 and G7 are verified after separate explicit approvals. G8 requires its next red-test review and approval; it cannot receive full credit before the human-approval workflow in branch 4.
+**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6 and G7 are verified after separate explicit approvals. G8's bounded loop is verified after approval; scheduling/recovery needs its own test checkpoint. G8 cannot receive full credit before the human-approval workflow in branch 4.
 
 ## G1: required evidence
 
@@ -239,3 +239,37 @@ The report UI shows all three advisory results and a prominent human-review warn
 | Repository audit | 84 required files exactly match the allowlist; source whitespace and `git diff --check` pass. Local references, scratch files, logs, secrets and generated output stay ignored. |
 
 G7 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **75/100**. Browser visual review and real model quality remain unverified; the evidence is component tests, mocked transport, fake smoke and HTTP deployment checks. Scheduling/recovery and drafting/evaluation are remaining branch-3 work; human approval completes G8 in branch 4. Parent MIS-11 stays in progress.
+
+## G8 / MIS-11: bounded-loop red checkpoint, 2026-11-16
+
+Same branch: `abdul2shaik/mis-11-03-featureai-pipeline`. Passing G7 committed locally at `45fdcf2`. The user approved this G8 batch with **“go ahead”** after the expected-red review. The following records the checkpoint before implementation. This batch covers the internal briefing loop and persistence; scheduling/recovery has a separate test review before branch-3 completion.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Accepted in rounds 1, 2 or 3 | Separate draft/evaluation requests, exact alternating order, stop immediately on acceptance, select one valid draft and keep approval pending for a human. |
+| Feedback and context | Pass the full evaluator feedback and preceding draft into the next round; provide original report, canonical Python decision and all check results. Caps: draft 700, evaluation 400. Strict schemas contain no approval/decision authority. |
+| Three rejections | Stop after round 3 (ten total calls including classification/checks), retain the latest valid draft and mark exhausted evaluation for human review. Never round 4. |
+| Evaluator failure | Invalid/refused/incomplete/timed-out evaluation retains the current valid draft, flags review and stops; it does not approve or silently accept the draft. |
+| Draft failure | Invalid/refused/provider-failed draft leaves approval unavailable. A second-round failure retains history without selecting an earlier draft. Preserve safety facts and usage. |
+| Durable human boundary | Save each valid draft before evaluation; persist rounds, evaluations, usage traces and selected/pending state across restart. Deceptive text or feedback cannot change verdicts or become human approval. |
+
+Offline run observed **20 expected new failures / 195 existing backend passes**. Every new failure is the missing `generate_briefing` operation; classification and checks execute successfully first. No import/collection/setup failures. The command stops before frontend/build; the latest G7 run passed all 14 frontend tests, TypeScript checking and production build.
+
+Only the new test file and its exact ignore exception changed after G7, plus this evidence. Production source, migrations and dependencies remain identical to `45fdcf2`. Required-file audit: 85 files match the allowlist. Failing tests remain uncommitted/unpushed; raw output stays ignored in `.local/validation/g8-loop-red.log`. G8 earns no advance credit; total remains **75/100**. Explain these tests and **wait for explicit user approval before implementing this batch**. No G9 work.
+
+### G8 bounded loop: approved implementation verified
+
+Implemented immutable draft records, strict draft/evaluation schemas and the three-round loop. Each valid draft commits before a separate evaluation call; revisions receive the complete feedback and preceding draft. Evaluation error selects the latest valid draft for human review; draft failure selects nothing, including after an earlier successful round. Terminal selection and report state commit together. A partial unique index permits at most one selected draft; approval remains a derived pending state, with no model-writable approval flag.
+
+Migration 0007 adds report status/error and round metadata plus briefing history. It adds report columns directly instead of rebuilding the parent table, preserving existing checks/traces and their cascade relationships. Storage updates cannot alter readings, verdicts, violations, priority or timestamps. No database transaction spans a model call.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **215 backend + 14 frontend tests passed**, followed by TypeScript checking and production build. Offline; no real provider call. |
+| Loop cases | All 20 new cases pass: acceptance in rounds 1/2/3, feedback/context propagation, max three rounds, evaluation failures, draft failures, no selection of earlier history after later failure, deceptive text and persisted history/usage. |
+| Human boundary | Accepted evaluation, exhausted revisions and evaluator errors leave selected drafts pending human approval. Draft errors leave approval unavailable. G8 remains unassessed until branch-4 human approval is complete. |
+| Default fake smoke | Isolated temporary SQLite container completed filing → classification → checks → draft/evaluation in six fake calls. NO_GO remained intact, one accepted draft was selected, human review remained required and approval pending. |
+| Deployment | `make up` succeeded with healthy API/web; proxied health/report reads passed after migration 0007. |
+| Repository audit | 88 required files match the allowlist; whitespace and `git diff --check` pass. Local references, logs, scratch files, secrets and generated output remain ignored. |
+
+This approved sub-batch is complete; **verified rubric total remains 75/100**. Scheduling/restart recovery is the next test-review checkpoint on the same branch. Parent MIS-11 stays in progress; no G9 work begins.

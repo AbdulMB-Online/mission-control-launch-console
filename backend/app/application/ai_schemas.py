@@ -38,3 +38,17 @@ class ToneCheck(BaseModel):
 
     tone: Literal["calm", "urgent", "panic"]
     rationale: CheckText
+
+
+class Draft(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    summary: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1200)]
+    recommended_actions: Annotated[list[CheckText], Field(max_length=5)]
+
+
+class Evaluation(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    acceptable: bool
+    feedback: Annotated[list[CheckText], Field(max_length=5)]

@@ -54,6 +54,13 @@ class FakeGateway:
             return LLMResult(provider="fake", model="fake-v1", response_id=f"fake-{request.stage}",
                              payload=payloads[request.stage], input_tokens=0, cached_input_tokens=0,
                              output_tokens=0, usage_status="reported")
+        if request.stage in ("draft", "evaluation"):
+            verdict = request.data.get("launch_decision", {}).get("verdict", "unavailable").upper()
+            payload = ({"summary": f"Simulated briefing. Python assessment: {verdict}. Review the reported anomaly and advisory findings before the Flight Director's decision.",
+                        "recommended_actions": ["Verify the original anomaly report and resolve flagged or unavailable checks."]}
+                       if request.stage == "draft" else {"acceptable": True, "feedback": []})
+            return LLMResult(provider="fake", model="fake-v1", response_id=f"fake-{request.stage}-{request.round_number}",
+                             payload=payload, input_tokens=0, cached_input_tokens=0, output_tokens=0, usage_status="reported")
         return LLMResult(provider="fake", model="fake-v1", status="error", error_code="unsupported_stage")
 
     async def aclose(self) -> None:

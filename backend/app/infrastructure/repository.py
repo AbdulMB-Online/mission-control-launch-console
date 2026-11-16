@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.domain.reports import Report
 from app.domain.launch_rules import Violation
 from app.domain.checks import CheckOutcome
-from app.infrastructure.models import PipelineCheckRow, ReportRow, StepTraceRow
+from app.domain.briefings import Briefing
+from app.infrastructure.models import BriefingRow, PipelineCheckRow, ReportRow, StepTraceRow
 from app.application.llm import ModelTrace
 
 
@@ -47,6 +48,8 @@ class SQLAlchemyReportStore:
             classification_rationale=report.classification_rationale,
             requires_review=report.requires_review,
             review_reasons_json=json.dumps(report.review_reasons),
+            pipeline_status=report.pipeline_status,
+            error_code=report.error_code,
         )
         async with self.sessions() as session:
             session.add(row)
@@ -58,7 +61,8 @@ class SQLAlchemyReportStore:
             if row is None:
                 return None
             checks = await self._load_checks(session, [report_id])
-            return self._to_report(row, checks.get(report_id, ()))
+            briefings = await self._load_briefings(session, [report_id])
+            return self._to_report(row, checks.get(report_id, ()), briefings.get(report_id, ()))
 
     async def list(self, limit: int, offset: int) -> tuple[list[Report], int]:
         async with self.sessions() as session:
@@ -71,7 +75,8 @@ class SQLAlchemyReportStore:
             )
             rows = result.all()
             checks = await self._load_checks(session, [row.id for row in rows])
-            return [self._to_report(row, checks.get(row.id, ())) for row in rows], total or 0
+            briefings = await self._load_briefings(session, [row.id for row in rows])
+            return [self._to_report(row, checks.get(row.id, ()), briefings.get(row.id, ())) for row in rows], total or 0
 
     async def update_priority(self, report: Report) -> None:
         # Classification can update only priority, never the submitted readings,
@@ -124,6 +129,54 @@ class SQLAlchemyReportStore:
                 session.add(StepTraceRow(**values))
             await session.commit()
 
+    async def update_briefings(self, report: Report, trace: ModelTrace | None = None) -> None:
+        async with self.sessions() as session:
+            await session.execute(update(ReportRow).where(ReportRow.id == report.id).values(
+                pipeline_status=report.pipeline_status, error_code=report.error_code,
+                requires_review=report.requires_review, review_reasons_json=json.dumps(report.review_reasons),
+            ))
+            for item in report.briefings:
+                row = await session.get(BriefingRow, item.id)
+                if row is None:
+                    row = BriefingRow(
+                        id=item.id, report_id=report.id, round_number=item.round_number,
+                        summary=item.summary, actions_json=json.dumps(item.recommended_actions),
+                        created_at=item.created_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+                    )
+                    session.add(row)
+                elif row.report_id != report.id or row.round_number != item.round_number:
+                    raise ValueError("Briefing does not belong to this report/round.")
+                # Stored draft text and creation metadata remain immutable.
+                row.evaluation_status = item.evaluation_status
+                row.feedback_json = json.dumps(item.feedback)
+                row.evaluated_at = item.evaluated_at.isoformat(timespec="microseconds").replace("+00:00", "Z") if item.evaluated_at else None
+                row.is_selected = item.is_selected
+            if trace is not None:
+                values = asdict(trace)
+                for field in ("started_at", "finished_at"):
+                    values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
+                session.add(StepTraceRow(**values))
+            await session.commit()
+
+    @staticmethod
+    async def _load_briefings(session, report_ids):
+        if not report_ids:
+            return {}
+        rows = await session.scalars(select(BriefingRow).where(
+            BriefingRow.report_id.in_(report_ids),
+        ).order_by(BriefingRow.round_number))
+        by_report = {}
+        for row in rows:
+            by_report.setdefault(row.report_id, []).append(Briefing(
+                id=row.id, round_number=row.round_number, summary=row.summary,
+                recommended_actions=tuple(json.loads(row.actions_json)),
+                created_at=datetime.fromisoformat(row.created_at.replace("Z", "+00:00")),
+                evaluation_status=row.evaluation_status, feedback=tuple(json.loads(row.feedback_json)),
+                evaluated_at=datetime.fromisoformat(row.evaluated_at.replace("Z", "+00:00")) if row.evaluated_at else None,
+                is_selected=row.is_selected,
+            ))
+        return {key: tuple(value) for key, value in by_report.items()}
+
     @staticmethod
     async def _load_checks(session, report_ids):
         if not report_ids:
@@ -140,7 +193,7 @@ class SQLAlchemyReportStore:
         return {key: tuple(value) for key, value in by_report.items()}
 
     @staticmethod
-    def _to_report(row: ReportRow, checks=()) -> Report:
+    def _to_report(row: ReportRow, checks=(), briefings=()) -> Report:
         return Report(
             id=row.id,
             engineer_name=row.engineer_name,
@@ -169,4 +222,7 @@ class SQLAlchemyReportStore:
             requires_review=row.requires_review,
             review_reasons=tuple(json.loads(row.review_reasons_json)),
             checks=checks,
+            pipeline_status=row.pipeline_status,
+            error_code=row.error_code,
+            briefings=briefings,
         )

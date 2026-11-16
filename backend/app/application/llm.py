@@ -59,6 +59,7 @@ class ModelTrace:
     usage_status: str
     error_code: str | None
     parallel_group: str | None = None
+    round_number: int | None = None
 
 
 async def guarded_generate(gateway, request: LLMRequest) -> LLMResult:
