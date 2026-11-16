@@ -12,7 +12,7 @@ Start the app:
 make up
 ```
 
-Open **http://localhost:8080**. Change `WEB_PORT` if 8080 is occupied. Engineers can file reports, view saved reports and retry validation or connection failures without losing their form entries. The API calculates and stores Python launch assessments. The current UI displays saved readings; the full Director assessment display and model processing arrive in later milestones.
+Open **http://localhost:8080**. Change `WEB_PORT` if 8080 is occupied. Engineers can file reports, view saved readings, priority and UTC briefing deadlines, and retry validation or connection failures without losing their form entries. The API calculates and stores Python launch assessments. The full Director assessment display and model processing arrive in later milestones.
 
 Run all current tests, TypeScript checking and the frontend production build:
 
@@ -46,6 +46,8 @@ SQLite lives in the `mission-control_mission-data` Docker volume. `make down` st
 All six fields are required. Name, station and note are trimmed and limited to 100, 50 and 4000 characters. Readings use decimal strings with up to six integer digits and three decimal places; JSON numbers, exponent notation and nonfinite values are rejected rather than rounded. Wind and fuel must be nonnegative. Readings outside launch limits, including fuel above 100%, are valid anomaly data and are saved with a `no_go` assessment. Extra fields, including verdict and approval metadata, are rejected.
 
 Python requires wind ≤25 knots, temperature ≥4°C and fuel between 98% and 100% inclusive. Any violation produces `verdict: "no_go"`; otherwise the verdict is `"go"`. Responses include `rule_version: "v1"` and `violations`, each containing `field`, `observed`, `operator`, `limit` and `message`. Observed values and limits are decimal strings. All violations are returned in wind/temperature/fuel order. The report and its assessment commit together. Report text has no input into the rule function. Startup migration assesses existing reports with the same v1 limits while preserving original data and timestamps.
+
+Responses also include `classified_severity`, `effective_severity`, `deadline_minutes`, `brief_by_at` and `severity_provisional`. Reports start with null classified severity and provisional high priority, due five minutes after submission. Python maps high/medium/low to 5/15/30 minutes; any launch violation forces effective high, and invalid severity falls back to high. Classification resolution is an internal application operation for the later AI pipeline, with no public endpoint. The deadline is always the original `created_at` plus the mapped duration; model delays and restarts cannot reset it. All priority fields are persisted. Migration gives existing reports provisional high priority using their original timestamps, so an old deadline can already be past. The UI renders the returned UTC deadline and clearly labels provisional priority.
 
 `GET /api/v1/reports/{id}` reads one report. `GET /api/v1/reports?limit=20&offset=0` returns `{items, total, limit, offset}`, newest first; limit must be 1–100 and offset nonnegative. Validation errors return HTTP 422 with `{error: {code, message, fields: [{field, message}]}}`. Unknown reports return HTTP 404. Reports are committed before submission succeeds and survive application process restarts.
 

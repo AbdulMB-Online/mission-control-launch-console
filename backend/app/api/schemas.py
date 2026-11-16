@@ -6,6 +6,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstr
 
 from app.domain.reports import Report, ReportInput
 from app.domain.launch_rules import Verdict
+from app.domain.severity import Severity
 
 
 def parse_reading(value: object) -> Decimal:
@@ -51,6 +52,11 @@ class ReportRead(BaseModel):
     verdict: Verdict
     violations: list[ViolationRead]
     rule_version: str
+    classified_severity: Severity | None
+    effective_severity: Severity
+    deadline_minutes: int
+    brief_by_at: str
+    severity_provisional: bool
 
     @classmethod
     def from_report(cls, report: Report) -> "ReportRead":
@@ -69,6 +75,11 @@ class ReportRead(BaseModel):
                 limit=format(item.limit, "f"), message=item.message,
             ) for item in report.violations],
             rule_version=report.rule_version,
+            classified_severity=report.classified_severity,
+            effective_severity=report.effective_severity,
+            deadline_minutes=report.deadline_minutes,
+            brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+            severity_provisional=report.severity_provisional,
         )
 
 

@@ -6,7 +6,11 @@ const payload = {
   engineer_name: 'Alex Rivera', station: 'PROP', wind_knots: '25.000',
   temp_c: '4.000', fuel_pct: '98.000', note: 'Valve response lagged during the final check.',
 };
-const saved = { ...payload, id: '00000000-0000-4000-8000-000000000001', created_at: '2026-11-12T12:00:00Z' };
+const saved = {
+  ...payload, id: '00000000-0000-4000-8000-000000000001', created_at: '2026-11-12T12:00:00Z',
+  classified_severity: null, effective_severity: 'high', deadline_minutes: 5,
+  brief_by_at: '2026-11-12T12:05:00.000000Z', severity_provisional: true,
+};
 const postMock = vi.fn();
 const fetchMock = vi.fn();
 

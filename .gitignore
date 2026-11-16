@@ -91,3 +91,12 @@ tmp/
 # Approved G4 implementation: Python decisions and historical data migration.
 !/backend/app/domain/launch_rules.py
 !/backend/migrations/versions/0003_launch_decisions.py
+
+# MIS-10 / G5: approved priority/deadline tests.
+!/backend/tests/test_severity.py
+!/backend/tests/test_severity_api.py
+!/frontend/src/features/reports/ReportPriority.test.tsx
+
+# Approved G5 implementation: pure priority rules and historical migration.
+!/backend/app/domain/severity.py
+!/backend/migrations/versions/0004_priority_deadlines.py

@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 import json
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.reports import Report
@@ -31,6 +31,11 @@ class SQLAlchemyReportStore:
                 for item in report.violations
             ]),
             rule_version=report.rule_version,
+            classified_severity=report.classified_severity,
+            effective_severity=report.effective_severity,
+            deadline_minutes=report.deadline_minutes,
+            brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+            severity_provisional=report.severity_provisional,
         )
         async with self.sessions() as session:
             session.add(row)
@@ -52,6 +57,19 @@ class SQLAlchemyReportStore:
             )
             return [self._to_report(row) for row in rows], total or 0
 
+    async def update_priority(self, report: Report) -> None:
+        # Classification can update only priority, never the submitted readings,
+        # Python verdict, violations, identity or original timestamp.
+        async with self.sessions() as session:
+            await session.execute(update(ReportRow).where(ReportRow.id == report.id).values(
+                classified_severity=report.classified_severity,
+                effective_severity=report.effective_severity,
+                deadline_minutes=report.deadline_minutes,
+                brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+                severity_provisional=report.severity_provisional,
+            ))
+            await session.commit()
+
     @staticmethod
     def _to_report(row: ReportRow) -> Report:
         return Report(
@@ -71,4 +89,9 @@ class SQLAlchemyReportStore:
                 ) for item in json.loads(row.violations_json)
             ),
             rule_version=row.rule_version,
+            classified_severity=row.classified_severity,
+            effective_severity=row.effective_severity,
+            deadline_minutes=row.deadline_minutes,
+            brief_by_at=datetime.fromisoformat(row.brief_by_at.replace("Z", "+00:00")),
+            severity_provisional=row.severity_provisional,
         )

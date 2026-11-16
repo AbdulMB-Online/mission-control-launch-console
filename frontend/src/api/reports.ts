@@ -7,16 +7,31 @@ export type ReportInput = {
   note: string;
 };
 
-export type Report = ReportInput & { id: string; created_at: string };
+export type Severity = 'high' | 'medium' | 'low';
+export type Report = ReportInput & {
+  id: string;
+  created_at: string;
+  classified_severity: Severity | null;
+  effective_severity: Severity;
+  deadline_minutes: 5 | 15 | 30;
+  brief_by_at: string;
+  severity_provisional: boolean;
+};
 export type ReportPage = { items: Report[]; total: number; limit: number; offset: number };
 export type FieldErrors = Partial<Record<keyof ReportInput, string>>;
 
 const inputFields = ['engineer_name', 'station', 'wind_knots', 'temp_c', 'fuel_pct', 'note'] as const;
 const reportFields = [...inputFields, 'id', 'created_at'] as const;
+const severities: Severity[] = ['high', 'medium', 'low'];
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 function readReport(value: unknown): Report {
-  if (!isObject(value) || !reportFields.every(field => typeof value[field] === 'string')) {
+  if (!isObject(value) || !reportFields.every(field => typeof value[field] === 'string')
+    || !severities.includes(value.effective_severity as Severity)
+    || (value.classified_severity !== null && !severities.includes(value.classified_severity as Severity))
+    || typeof value.deadline_minutes !== 'number' || ![5, 15, 30].includes(value.deadline_minutes)
+    || typeof value.brief_by_at !== 'string' || Number.isNaN(Date.parse(value.brief_by_at))
+    || typeof value.severity_provisional !== 'boolean') {
     throw new Error('Invalid report response');
   }
   return value as Report;

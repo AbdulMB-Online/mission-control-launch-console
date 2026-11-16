@@ -3,6 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.domain.launch_rules import Verdict, Violation
+from app.domain.severity import Severity
 
 
 @dataclass(frozen=True)
@@ -22,3 +23,8 @@ class Report(ReportInput):
     verdict: Verdict
     violations: tuple[Violation, ...]
     rule_version: str
+    classified_severity: Severity | None
+    effective_severity: Severity
+    deadline_minutes: int
+    brief_by_at: datetime
+    severity_provisional: bool

@@ -49,6 +49,12 @@ export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken:
       {Boolean(page?.items.length) && <div className="report-list">{page!.items.map(report => <article className="saved-report" key={report.id}>
         <div className="saved-report-heading"><span className="station-badge">{report.station}</span><time dateTime={report.created_at}>{new Date(report.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC</time></div>
         <h3>{report.engineer_name}</h3>
+        <div className={`report-priority priority-${report.effective_severity}`}>
+          <div className="priority-description"><strong>{{ high: 'High priority', medium: 'Medium priority', low: 'Low priority' }[report.effective_severity]}</strong>
+            {report.severity_provisional && <span>Provisional — awaiting classification</span>}
+          </div>
+          <div className="priority-deadline"><span>Brief by</span><time aria-label="Briefing deadline" dateTime={report.brief_by_at}>{new Date(report.brief_by_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' })} UTC</time></div>
+        </div>
         <dl className="saved-readings"><div><dt>Wind</dt><dd>{report.wind_knots}<span> knots</span></dd></div><div><dt>Temperature</dt><dd>{report.temp_c}<span> °C</span></dd></div><div><dt>Fuel</dt><dd>{report.fuel_pct}<span> %</span></dd></div></dl>
         <p className="saved-note">{report.note}</p><span className="report-reference">Report {report.id.slice(0, 8)}</span>
       </article>)}</div>}
@@ -56,6 +62,7 @@ export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken:
     </section>
   );
 }
+
 function ReportIllustration() {
   return (
     <svg className="report-illustration" viewBox="0 0 560 210" fill="none" aria-hidden="true">
