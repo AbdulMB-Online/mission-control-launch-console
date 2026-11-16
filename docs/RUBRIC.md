@@ -6,16 +6,16 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | --- | --- | ---: | --- | --- |
 | G1 | Working README start/test commands | 10 | Passed | 10/10 |
 | G2 | Four technology decisions | 10 | Passed | 10/10 |
-| G3 | Filing, validation and persistence | 10 | Not started | Not assessed |
-| G4 | Python launch limits | 15 | Not started | Not assessed |
-| G5 | Severity and deadlines | 10 | Not started | Not assessed |
+| G3 | Filing, validation and persistence | 10 | Passed | 10/10 |
+| G4 | Python launch limits | 15 | Passed | 15/15 |
+| G5 | Severity and deadlines | 10 | Passed | 10/10 |
 | G6 | Structured classification and fallback | 10 | Not started | Not assessed |
 | G7 | Concurrent checks and injection protection | 10 | Not started | Not assessed |
 | G8 | Draft/evaluation and human approval | 10 | Not started | Not assessed |
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 20/100.** Current branch: `abdul2shaik/mis-5-01-choreproject-setup` (foundation milestone); Linear: MIS-5 / MIS-6 / MIS-7. Implementation authorized by the user on 2026-11-11. Branch 1 still requires its focused PR and user review; branch 2 has not started. The user requested the canonical Linear-generated branch name on 2026-11-12; this renames the same workstream and adds no milestone.
+**Fully verified total: 55/100.** MIS-5 is complete: merged PR #1 verified at main commit `252b0a1` on 2026-11-12. Current branch: `abdul2shaik/mis-8-02-featurereport-processing`. G3, G4 and G5 are verified after separate explicit user approvals. Branch 2 implementation is ready for its focused PR review; parent MIS-8 stays in progress until merge. No branch-3 implementation has started.
 
 ## G1: required evidence
 
@@ -69,3 +69,102 @@ G2 self-assessment: **10/10**, no unmet clauses. Cumulative full-gate score: **2
 ## User approval checkpoint for future TDD cycles
 
 Added 2026-11-12: announce each new branch and ticket; write tests and observe expected failures; explain their intended behavior and why they failed; then **wait for explicit user approval before implementation**. Record approval in the existing ticket/PR. Silence is not approval. Historical branch-1 work predates this checkpoint. Present each branch for user review; documentation-only changes use completeness audits.
+
+## G3 / MIS-9: red checkpoint, 2026-11-12
+
+Branch: `abdul2shaik/mis-8-02-featurereport-processing`, created from merged main `252b0a1`. The user explicitly approved this batch with **“yes”** after the red-test explanation. The following records the checkpoint before implementation.
+
+| Test group | Intended behavior |
+| --- | --- |
+| API filing/read/list | Persist all six fields, return server-owned UUID/UTC metadata, read records and paginate from stored ordering. |
+| Input validation | Require every field; trim/bound text; reject invalid decimal strings, precision loss, nonfinite values and malformed/negative readings where prohibited. Return clear field messages without saving invalid data. |
+| Trust boundary | Reject engineer-supplied verdict, approval, severity and timestamp metadata. |
+| Safety-data distinction | Accept syntactically valid readings outside launch limits (including fuel 100.001) for later Python limit checking. No launch-rule implementation or G4 credit yet. |
+| Persistence | Preserve saved input and metadata across a new application instance and an actual API process stop/start against the same file-backed database. |
+| Form | Send six fields with decimal strings, show errors without losing inputs, allow network retry and prevent duplicate pending submissions. |
+
+Observed with external network disabled: backend **40 failed / 9 passed**, frontend **4 failed / 5 passed**. All 14 existing foundation tests pass. New backend tests reach the live/in-process app but fail because report routes are absent (404/default error format); the real process starts successfully. New UI tests fail because the File report action/form is absent. No collection/import/socket setup errors are being counted as behavioral evidence.
+
+Only tests, their shared fixture, exact ignore exceptions and this scorecard changed. Production code/migrations remain identical to merged main. No report implementation, G4/G5 work, failing-test commit or push has occurred. **Stop here for the user's test review and explicit implementation approval.** G3 earns no points yet; cumulative verified score stays **20/100**. Raw logs stay ignored in `.local/validation/`.
+
+### G3: approved implementation and green assessment
+
+After approval, implemented the six-field form, a typed API, an independent report use case and SQLAlchemy storage with migration `0002`. Exact decimal text and UTC metadata survive storage without float conversion. Validation rejects unknown privileged properties. The UI renders submitted notes as text, preserves inputs on failure and blocks duplicate submissions while pending.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **49 backend + 9 frontend tests passed**, then TypeScript checking and Vite production build passed. External networking disabled; no API key. |
+| API validation and filing | 38 report API cases cover all six fields, bounds, decimal precision, forged metadata, saved read/list ordering and understandable errors. |
+| Restart durability | Two tests verify a new application instance and a real Uvicorn process stop/start against the same SQLite file. All six fields, ID and timestamp are retained. |
+| Form | Four new component tests cover exact submission, field errors with retained values, network retry and duplicate-pending prevention. Five foundation tests still pass. |
+| Deployment | `make up` exited 0, API and web healthy. Proxied `/healthz` returned expected fake-mode JSON; `/api/v1/reports` returned the real empty persisted collection. |
+| Required-file audit | 58 required files exactly match the ignore allowlist. Local plan, PDF, secrets, databases, logs, generated outputs and dependencies remain ignored. `git diff --check` passed. |
+
+G3 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **30/100**. Visual browser review remains unverified; no visual QA claim is made. This gate covers filing, validation and persistence only. Python verdicts, severity/deadlines and model processing receive no advance credit. MIS-8 remains in progress until G4 and G5 pass and its focused PR is reviewed and merged.
+
+## G4 / MIS-10: red checkpoint, 2026-11-15
+
+Same branch: `abdul2shaik/mis-8-02-featurereport-processing`. Passing G3 implementation committed at `2df2bf4`; it has not been pushed. The user approved this batch with **“lets continue”** after the expected-red explanation. The following records the checkpoint before implementation.
+
+| New test group | Intended behavior |
+| --- | --- |
+| 13 boundary cases, each at the use-case and API boundaries | Wind 24.999/25/25.000 passes and 25.001 fails; temperature 3.999 fails and 4/4.001 passes; fuel 97.999 fails, 98/98.001/99.999/100 passes and 100.001 fails. Exact Decimal comparisons; all other readings stay safe. |
+| Combined violations | Return every violated measurement in fixed wind/temperature/fuel order, for both low and high fuel. Each violation has observed value, operator, limit and a readable message. |
+| Decision ownership | Compute before persistence without a model or DB; domain decision and violations are immutable. Report text requesting either GO or NO_GO cannot select the verdict. |
+| Saved assessment | Filing, read and list expose the same decision/version/violations. Check actual stored columns, then reopen the app and verify the assessment remains intact. |
+| Upgrade existing G3 reports | Migrate a real version-0002 database with an existing above-100 fuel report; preserve every original field and metadata while adding a Python assessment. Repeated startup keeps one report. |
+
+`make test` observed **33 expected failures / 49 existing backend passes** with external networking disabled. Every new failure is a missing authoritative verdict assertion, not a missing import, collection error or failed process setup. The command stops at backend failures, so frontend/build were not rerun in this red cycle; their most recent G3 run passed 9 frontend tests, TypeScript checking and production build.
+
+Only tests, their boundary fixture, exact ignore exceptions and this evidence changed since the passing G3 commit. No launch-rule source or migration has been added. The failing tests remain uncommitted and unpushed. G4 has no score yet; total stays **30/100**. Explain these results and **wait for explicit user approval before implementing G4**. G5 remains untouched. Raw output is ignored at `.local/validation/g4-red.log`.
+
+### G4: approved implementation and green assessment
+
+Implemented `domain/launch_rules.py` using only standard-library dataclasses, Decimal and literal types. The rule function accepts only the three readings, returns every violation in fixed order and produces an immutable result. The filing use case computes the decision before committing it with the report. Read/list deserialize the saved assessment rather than recalculating it or consulting a model. API schemas expose typed verdicts, rule version and exact decimal violation details.
+
+Migration `0003` backfills existing reports using a frozen v1 rule snapshot and adds required assessment columns plus a verdict check constraint. It preserves original readings, notes, identity and timestamps. Historical migration rules are kept independent of future application/ORM changes.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **82 backend + 9 frontend tests passed**, then TypeScript checking and production build passed. No external network or API key. |
+| Boundaries and ownership | All 33 approved G4 cases pass: 13 boundary cases through each of use case/API, combined violations, immutability, adversarial report text, actual stored columns/restart and upgrade of existing data. |
+| Previous gates | All 49 prior backend and 9 frontend tests remain green, including the real API process restart. |
+| Deployment | `make up` exited 0; API/web healthy after migration. Proxied health and report collection returned HTTP 200 with the expected JSON. |
+| Repository audit | 62 required files exactly match the ignore allowlist. `git diff --check` passed. Local plan, assignment PDF, validation output, dependencies, databases and secrets remain ignored. |
+
+G4 self-assessment: **15/15**, no unmet clauses. Cumulative verified score: **45/100**. This is the launch-limit criterion only; model injection detection and the complete Director display retain their later gates. No G5 implementation or credit yet. MIS-10 and its parent MIS-8 remain in progress.
+
+## G5 / MIS-10: red checkpoint, 2026-11-15
+
+Same branch: `abdul2shaik/mis-8-02-featurereport-processing`. Passing G4 committed locally at `0ab919b`. The user approved this batch with **“lets start implementing”** after the expected-red review. The following records the checkpoint before implementation.
+
+| New test group | Intended behavior |
+| --- | --- |
+| Before classification | File reports with classified severity null, effective high, provisional true and a five-minute deadline, for both GO and NO_GO readings. |
+| Python severity mapping | Internal `ReportService.resolve_priority` maps high/medium/low to 5/15/30 minutes through a pure domain calculator and persists the result. It is not an engineer-facing endpoint. |
+| Every violation overrides | Each of wind, temperature, low fuel and high fuel forces high/five minutes for every model severity. Preserve the classified severity separately from effective severity and leave safety facts intact. |
+| Anchored time and fallback | Fixed UTC submission at 23:58; classification two days later cannot restart the clock. Cover midnight rollover and malformed/missing severity falling back to high. |
+| Durable deadlines | Provisional and each resolved priority survive database reload/application restart. Upgrade existing version-0003 reports using their original submission time. |
+| Trust boundary | Reject all five new severity/deadline properties when supplied by an engineer. |
+| Display | Show provisional high priority with an explanatory label, or resolved priority without that label; render the exact server deadline as an accessible UTC time. |
+
+Observed offline: backend **28 failed / 87 passed**, frontend **2 failed / 9 passed**. All 91 existing tests remain green; five new forged-metadata tests already pass due to strict submission validation. Failures are missing report priority/deadline fields, the absent internal priority-resolution operation and missing priority display. Tests collect successfully; no import or process-setup failures are counted.
+
+Only the new tests and exact ignore exceptions changed after the passing G4 commit, plus this evidence. No G5 source or migration has been added. Failing tests remain uncommitted and unpushed. Raw logs stay ignored in `.local/validation/g5-backend-red.log` and `g5-frontend-red.log`. G5 earns no advance credit; verified total remains **45/100**. Explain these failures and **wait for explicit user approval before implementing G5**.
+
+### G5: approved implementation and green assessment
+
+Implemented the pure `domain/severity.py` calculator with no database, model or current-clock dependency. Submission commits provisional high priority with the report and launch assessment. Internal classification resolution preserves the original timestamp and safety facts, computes effective priority in Python, and writes only the five priority fields. No public endpoint permits an engineer to select severity or deadline.
+
+Migration `0004` adds durable priority columns and checks the severity/deadline mapping and NO_GO override. Existing reports receive provisional high priority with deadlines based on their original timestamps. The UI validates priority response fields, displays the returned UTC time and distinguishes provisional from resolved priority using the established console design. The later AI pipeline will call the internal resolution operation; no model processing is claimed in this branch.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **115 backend + 11 frontend tests passed**, followed by TypeScript checking and production build. External networking disabled; no API key. |
+| Mapping and overrides | All three severities map to 5/15/30 minutes. Each of four limit violations overrides every classification to high/five minutes. Invalid or missing severity falls back high. |
+| Time and persistence | Fixed UTC clock, midnight rollover and two-day classification delay tests pass. Both provisional and all resolved priorities survive reload. Migration uses the original report timestamp. |
+| UI and trust boundary | Provisional/resolved component tests pass with exact server datetime/UTC labels. All five engineer-supplied priority properties are rejected. Existing form/retry/pending and foundation tests remain green. |
+| Deployment | `make up` exited 0; API/web healthy after migration. Proxied health and report collection returned HTTP 200 with expected JSON. |
+| Repository audit | 67 required files exactly match the allowlist; source whitespace and `git diff --check` pass. Local plan, PDF, raw evidence, dependencies, generated builds, databases and secrets remain ignored. |
+
+G5 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **55/100**. G3/G4 remain fully verified. Browser visual review remains unverified; component tests and HTTP deployment checks are the evidence obtained. Branch 2 is ready for review. Keep MIS-8 in progress until its PR merges; then start the AI branch from updated main and repeat the explicit test-review approval workflow. G6–G10 have no advance credit.

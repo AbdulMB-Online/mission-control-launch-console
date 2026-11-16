@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from alembic.script import ScriptDirectory
 
 from app.infrastructure.db import Database
 
@@ -11,7 +12,7 @@ async def test_migrations_and_sqlite_connection_protections(settings):
             assert (await connection.execute(text("PRAGMA foreign_keys"))).scalar() == 1
             assert (await connection.execute(text("PRAGMA journal_mode"))).scalar() == "wal"
             assert (await connection.execute(text("PRAGMA busy_timeout"))).scalar() >= 5000
-            assert (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalar() == "0001"
+            assert (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalar() == ScriptDirectory.from_config(database.migration_config()).get_current_head()
         assert await database.ready()
     finally:
         await database.close()

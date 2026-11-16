@@ -60,3 +60,43 @@ tmp/
 !/scripts/test.sh
 !/docs/RUBRIC.md
 !/TOOL_CHOICES.md
+
+# MIS-9: approved report filing/validation/restart tests.
+!/backend/tests/test_report_api.py
+!/backend/tests/test_report_persistence.py
+!/frontend/src/features/reports/ReportForm.test.tsx
+
+# Approved G3 implementation: report domain/use case, API and durable storage.
+!/backend/app/domain/__init__.py
+!/backend/app/domain/reports.py
+!/backend/app/application/__init__.py
+!/backend/app/application/ports.py
+!/backend/app/application/reports.py
+!/backend/app/infrastructure/models.py
+!/backend/app/infrastructure/repository.py
+!/backend/app/api/__init__.py
+!/backend/app/api/schemas.py
+!/backend/app/api/routes.py
+!/backend/app/api/errors.py
+!/backend/migrations/versions/0002_reports.py
+!/frontend/src/app/Icon.tsx
+!/frontend/src/api/reports.ts
+!/frontend/src/features/reports/ReportForm.tsx
+!/frontend/src/features/reports/ReportWorkspace.tsx
+
+# MIS-10 / G4: approved launch-rule behavior tests.
+!/backend/tests/test_launch_rules.py
+!/backend/tests/test_launch_rules_api.py
+
+# Approved G4 implementation: Python decisions and historical data migration.
+!/backend/app/domain/launch_rules.py
+!/backend/migrations/versions/0003_launch_decisions.py
+
+# MIS-10 / G5: approved priority/deadline tests.
+!/backend/tests/test_severity.py
+!/backend/tests/test_severity_api.py
+!/frontend/src/features/reports/ReportPriority.test.tsx
+
+# Approved G5 implementation: pure priority rules and historical migration.
+!/backend/app/domain/severity.py
+!/backend/migrations/versions/0004_priority_deadlines.py
