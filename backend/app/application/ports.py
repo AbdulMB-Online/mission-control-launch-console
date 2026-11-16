@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Protocol
 
 from app.domain.reports import Report
@@ -14,6 +16,8 @@ class ReportStore(Protocol):
     async def update_priority(self, report: Report) -> None: ...
 
     async def update_classification(self, report: Report, trace: ModelTrace) -> None: ...
+
+    async def update_checks(self, report: Report, traces: list[ModelTrace]) -> None: ...
 
 
 class LLMGateway(Protocol):

@@ -5,6 +5,7 @@ from typing import Literal
 
 from app.domain.launch_rules import Verdict, Violation
 from app.domain.severity import Severity
+from app.domain.checks import CheckOutcome
 
 
 @dataclass(frozen=True)
@@ -34,3 +35,4 @@ class Report(ReportInput):
     classification_rationale: str = ""
     requires_review: bool = False
     review_reasons: tuple[str, ...] = ()
+    checks: tuple[CheckOutcome, ...] = ()

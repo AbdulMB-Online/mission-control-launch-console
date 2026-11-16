@@ -8,6 +8,7 @@ from app.domain.reports import Report, ReportInput
 from app.domain.launch_rules import Verdict
 from app.domain.severity import Severity
 from app.application.ai_schemas import Subsystem
+from app.domain.checks import CheckKind
 
 
 def parse_reading(value: object) -> Decimal:
@@ -41,6 +42,14 @@ class ViolationRead(BaseModel):
     message: str
 
 
+class CheckRead(BaseModel):
+    kind: CheckKind
+    status: Literal["completed", "error"]
+    flagged: bool | None
+    details: dict[str, object]
+    error_code: str | None
+
+
 class ReportRead(BaseModel):
     id: str
     engineer_name: str
@@ -63,6 +72,7 @@ class ReportRead(BaseModel):
     classification_rationale: str
     requires_review: bool
     review_reasons: list[str]
+    checks: list[CheckRead]
 
     @classmethod
     def from_report(cls, report: Report) -> "ReportRead":
@@ -91,6 +101,8 @@ class ReportRead(BaseModel):
             classification_rationale=report.classification_rationale,
             requires_review=report.requires_review,
             review_reasons=list(report.review_reasons),
+            checks=[CheckRead(kind=item.kind, status=item.status, flagged=item.flagged,
+                              details=item.details, error_code=item.error_code) for item in report.checks],
         )
 
 

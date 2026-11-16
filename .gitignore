@@ -114,3 +114,14 @@ tmp/
 !/backend/app/infrastructure/llm/fake_gateway.py
 !/backend/app/infrastructure/llm/openai_gateway.py
 !/backend/migrations/versions/0005_classification.py
+
+# MIS-13 / G7: approved concurrent checks and human-review tests.
+!/backend/tests/test_parallel_checks.py
+!/backend/tests/test_prompt_injection.py
+!/frontend/src/features/reports/ReportChecks.test.tsx
+
+# Approved G7 implementation: advisory outcomes, runner, migration and display.
+!/backend/app/domain/checks.py
+!/backend/app/application/pipeline.py
+!/backend/migrations/versions/0006_advisory_checks.py
+!/frontend/src/features/reports/ReportChecks.tsx

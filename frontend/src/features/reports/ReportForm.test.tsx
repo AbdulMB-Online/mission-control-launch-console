@@ -10,6 +10,7 @@ const saved = {
   ...payload, id: '00000000-0000-4000-8000-000000000001', created_at: '2026-11-12T12:00:00Z',
   classified_severity: null, effective_severity: 'high', deadline_minutes: 5,
   brief_by_at: '2026-11-12T12:05:00.000000Z', severity_provisional: true,
+  requires_review: false, review_reasons: [], checks: [],
 };
 const postMock = vi.fn();
 const fetchMock = vi.fn();

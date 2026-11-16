@@ -42,6 +42,18 @@ class FakeGateway:
                          "rationale": "Simulated classification; inspect the engineering report before acting."},
                 input_tokens=0, cached_input_tokens=0, output_tokens=0, usage_status="reported",
             )
+        if request.stage in ("injection", "missing_information", "tone"):
+            # Deliberately labeled simulation, not an LLM or safety authority.
+            note = request.data.get("report", {}).get("note", "").lower()
+            flagged = any(marker in note for marker in ("ignore prior", "ignore all", "system override", "mark approved", "hide this instruction"))
+            payloads = {
+                "injection": {"flagged": flagged, "reasons": ["Simulated detection of instruction-like text."] if flagged else []},
+                "missing_information": {"flagged": True, "missing_details": ["Confirm the anomaly timestamp and reproduction steps."]},
+                "tone": {"tone": "calm", "rationale": "Simulated tone check; inspect the original report."},
+            }
+            return LLMResult(provider="fake", model="fake-v1", response_id=f"fake-{request.stage}",
+                             payload=payloads[request.stage], input_tokens=0, cached_input_tokens=0,
+                             output_tokens=0, usage_status="reported")
         return LLMResult(provider="fake", model="fake-v1", status="error", error_code="unsupported_stage")
 
     async def aclose(self) -> None:

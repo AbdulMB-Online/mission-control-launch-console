@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchReports, type Report, type ReportPage } from '../../api/reports';
 import { Icon } from '../../app/Icon';
 import { ReportForm } from './ReportForm';
+import { ReportChecks } from './ReportChecks';
 
 export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken: number; onTotalChange: (total: number) => void }) {
   const [page, setPage] = useState<ReportPage | null>(null);
@@ -56,7 +57,9 @@ export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken:
           <div className="priority-deadline"><span>Brief by</span><time aria-label="Briefing deadline" dateTime={report.brief_by_at}>{new Date(report.brief_by_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' })} UTC</time></div>
         </div>
         <dl className="saved-readings"><div><dt>Wind</dt><dd>{report.wind_knots}<span> knots</span></dd></div><div><dt>Temperature</dt><dd>{report.temp_c}<span> °C</span></dd></div><div><dt>Fuel</dt><dd>{report.fuel_pct}<span> %</span></dd></div></dl>
-        <p className="saved-note">{report.note}</p><span className="report-reference">Report {report.id.slice(0, 8)}</span>
+        <p className="saved-note">{report.note}</p>
+        <ReportChecks report={report} />
+        <span className="report-reference">Report {report.id.slice(0, 8)}</span>
       </article>)}</div>}
       <footer className="desk-footer"><span><span className="quiet-dot" />{page ? `${page.total} saved ${page.total === 1 ? 'report' : 'reports'}` : 'Persistent report storage'}</span><span>{page && page.total > 20 ? 'Showing latest 20' : 'Every report stays on record'}</span></footer>
     </section>

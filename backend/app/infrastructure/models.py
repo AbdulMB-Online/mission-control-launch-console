@@ -72,3 +72,22 @@ class StepTraceRow(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     usage_status: Mapped[str] = mapped_column(String(20))
     error_code: Mapped[str | None] = mapped_column(String(40))
+    parallel_group: Mapped[str | None] = mapped_column(String(36))
+
+
+class PipelineCheckRow(Base):
+    __tablename__ = "pipeline_checks"
+    __table_args__ = (
+        UniqueConstraint("report_id", "kind", name="uq_report_check_kind"),
+        CheckConstraint("kind IN ('injection', 'missing_information', 'tone')", name="check_kind_value"),
+        CheckConstraint("status IN ('completed', 'error')", name="check_status_value"),
+        CheckConstraint("(status = 'error' AND flagged IS NULL) OR (status = 'completed' AND flagged IS NOT NULL)", name="check_flag_known"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(24))
+    status: Mapped[str] = mapped_column(String(12))
+    flagged: Mapped[bool | None] = mapped_column(Boolean)
+    details_json: Mapped[str] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(String(40))

@@ -1,5 +1,6 @@
 """Provider-independent model requests, results and persisted call metadata."""
 
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -57,3 +58,24 @@ class ModelTrace:
     output_tokens: int | None
     usage_status: str
     error_code: str | None
+    parallel_group: str | None = None
+
+
+async def guarded_generate(gateway, request: LLMRequest) -> LLMResult:
+    try:
+        async with asyncio.timeout(30):
+            return await gateway.generate(request)
+    except TimeoutError:
+        code = "timeout"
+    except Exception:
+        code = "provider_error"
+    # CancelledError inherits BaseException and must propagate to the caller.
+    return LLMResult(provider=getattr(gateway, "provider", "unknown"), status="error", error_code=code)
+
+
+def model_error(response) -> str | None:
+    if response.status == "completed":
+        return None
+    allowed = ("refusal", "incomplete", "invalid_output", "timeout", "provider_error",
+               "authentication_error", "rate_limited", "transport_error")
+    return response.error_code if response.error_code in allowed else "provider_error"

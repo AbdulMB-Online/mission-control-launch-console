@@ -195,6 +195,18 @@ h1 { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(43px, 4.2vw, 
 .priority-medium strong { color: var(--cobalt); }
 .priority-deadline { align-items: flex-end; }
 .priority-deadline time { font-size: 10px; line-height: 1.6; color: var(--ink); }
+.report-analysis { margin: 18px 0; }
+.review-notice { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border-left: 3px solid var(--caution); background: #fcf5eb; color: #79501d; }
+.review-notice .icon { width: 17px; height: 17px; margin-top: 2px; }
+.review-notice strong { font-size: 12px; font-weight: 600; }
+.review-notice p { margin: 5px 0 0; font-size: 11px; line-height: 1.8; }
+.check-group { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.check-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.check-heading h4 { margin: 0; font-size: 11px; font-weight: 500; }
+.check-badge { padding: 3px 7px; font-size: 10px; border-radius: 3px; color: #344a6c; background: #edf2fa; }
+.check-badge.attention { color: #79501d; background: #fcf0dc; }
+.check-group p, .check-group ul, .checks-pending { margin: 8px 0 0; font-size: 11px; line-height: 1.8; color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+.check-group ul { padding-left: 18px; }
 
 @media (min-width: 1550px) {
   .mission-content { padding-top: 43px; }

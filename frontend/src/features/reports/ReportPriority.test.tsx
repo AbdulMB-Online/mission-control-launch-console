@@ -6,6 +6,7 @@ const baseReport = {
   id: '00000000-0000-4000-8000-000000000001', engineer_name: 'Alex Rivera', station: 'PROP',
   wind_knots: '25.000', temp_c: '4.000', fuel_pct: '98.000', note: 'Valve response lagged.',
   created_at: '2026-11-15T23:58:00.000000Z', verdict: 'go', violations: [], rule_version: 'v1',
+  requires_review: false, review_reasons: [], checks: [],
 };
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

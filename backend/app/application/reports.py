@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
@@ -7,9 +6,10 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from app.application.ai_schemas import Classification
-from app.application.llm import LLMRequest, LLMResult, ModelTrace, token_usage
+from app.application.llm import LLMRequest, ModelTrace, guarded_generate, model_error, token_usage
 from app.application.ports import LLMGateway, ReportStore
-from app.application.prompts import CLASSIFICATION_PROMPT_VERSION, CLASSIFICATION_SYSTEM
+from app.application.prompts import CLASSIFICATION_PROMPT_VERSION, CLASSIFICATION_SYSTEM, report_data
+from app.application.pipeline import analyze_checks
 from app.domain.launch_rules import assess_launch
 from app.domain.reports import Report, ReportInput
 from app.domain.severity import calculate_priority
@@ -62,34 +62,20 @@ class ReportService:
             return report
         request = LLMRequest(
             stage="classification", round_number=None, system_prompt=CLASSIFICATION_SYSTEM,
-            data={"report": {
-                "engineer_name": report.engineer_name, "station": report.station, "note": report.note,
-                "wind_knots": format(report.wind_knots, "f"), "temp_c": format(report.temp_c, "f"),
-                "fuel_pct": format(report.fuel_pct, "f"),
-            }},
+            data={"report": report_data(report)},
             schema=Classification.model_json_schema(), max_output_tokens=300,
             prompt_version=CLASSIFICATION_PROMPT_VERSION,
         )
         started_at = self.clock()
-        try:
-            async with asyncio.timeout(30):
-                response = await gateway.generate(request)
-        except TimeoutError:
-            response = LLMResult(provider=getattr(gateway, "provider", "unknown"), status="error", error_code="timeout")
-        except Exception:
-            response = LLMResult(provider=getattr(gateway, "provider", "unknown"), status="error", error_code="provider_error")
+        response = await guarded_generate(gateway, request)
 
         classified = None
-        code = None
-        if response.status == "completed":
+        code = model_error(response)
+        if code is None:
             try:
                 classified = Classification.model_validate(response.payload)
             except ValidationError:
                 code = "invalid_output"
-        else:
-            allowed = {"refusal", "incomplete", "invalid_output", "timeout", "provider_error",
-                       "authentication_error", "rate_limited", "transport_error"}
-            code = response.error_code if response.error_code in allowed else "provider_error"
 
         priority = calculate_priority(report.created_at, classified.severity if classified else "high", bool(report.violations))
         reasons = tuple(dict.fromkeys((*report.review_reasons, *((f"classification_{code}",) if code else ()))))
@@ -107,4 +93,12 @@ class ReportService:
             provider_response_id=response.response_id, error_code=code, **usage,
         )
         await self.store.update_classification(resolved, trace)
+        return resolved
+
+    async def run_checks(self, report_id: str, gateway: LLMGateway) -> Report:
+        report = await self.get(report_id)
+        if report.checks:
+            return report
+        resolved, traces = await analyze_checks(report, gateway, self.clock)
+        await self.store.update_checks(resolved, traces)
         return resolved

@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 from datetime import datetime
 from dataclasses import asdict
 from decimal import Decimal
 import json
+from uuid import uuid4
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.reports import Report
 from app.domain.launch_rules import Violation
-from app.infrastructure.models import ReportRow, StepTraceRow
+from app.domain.checks import CheckOutcome
+from app.infrastructure.models import PipelineCheckRow, ReportRow, StepTraceRow
 from app.application.llm import ModelTrace
 
 
@@ -51,18 +55,23 @@ class SQLAlchemyReportStore:
     async def get(self, report_id: str) -> Report | None:
         async with self.sessions() as session:
             row = await session.get(ReportRow, report_id)
-            return self._to_report(row) if row is not None else None
+            if row is None:
+                return None
+            checks = await self._load_checks(session, [report_id])
+            return self._to_report(row, checks.get(report_id, ()))
 
     async def list(self, limit: int, offset: int) -> tuple[list[Report], int]:
         async with self.sessions() as session:
             total = await session.scalar(select(func.count()).select_from(ReportRow))
-            rows = await session.scalars(
+            result = await session.scalars(
                 select(ReportRow)
                 .order_by(ReportRow.created_at.desc(), ReportRow.id.desc())
                 .limit(limit)
                 .offset(offset)
             )
-            return [self._to_report(row) for row in rows], total or 0
+            rows = result.all()
+            checks = await self._load_checks(session, [row.id for row in rows])
+            return [self._to_report(row, checks.get(row.id, ())) for row in rows], total or 0
 
     async def update_priority(self, report: Report) -> None:
         # Classification can update only priority, never the submitted readings,
@@ -96,8 +105,42 @@ class SQLAlchemyReportStore:
             session.add(StepTraceRow(**values))
             await session.commit()
 
+    async def update_checks(self, report: Report, traces: list[ModelTrace]) -> None:
+        # Persist each outcome as its own row, including failures. No model call
+        # is awaited inside this transaction and no safety/approval column is writable.
+        async with self.sessions() as session:
+            await session.execute(update(ReportRow).where(ReportRow.id == report.id).values(
+                requires_review=report.requires_review, review_reasons_json=json.dumps(report.review_reasons),
+            ))
+            for check in report.checks:
+                session.add(PipelineCheckRow(
+                    id=str(uuid4()), report_id=report.id, kind=check.kind, status=check.status,
+                    flagged=check.flagged, details_json=json.dumps(check.details), error_code=check.error_code,
+                ))
+            for trace in traces:
+                values = asdict(trace)
+                for field in ("started_at", "finished_at"):
+                    values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
+                session.add(StepTraceRow(**values))
+            await session.commit()
+
     @staticmethod
-    def _to_report(row: ReportRow) -> Report:
+    async def _load_checks(session, report_ids):
+        if not report_ids:
+            return {}
+        rows = await session.scalars(select(PipelineCheckRow).where(
+            PipelineCheckRow.report_id.in_(report_ids),
+        ).order_by(PipelineCheckRow.kind))
+        by_report = {}
+        for row in rows:
+            by_report.setdefault(row.report_id, []).append(CheckOutcome(
+                kind=row.kind, status=row.status, flagged=row.flagged,
+                details=json.loads(row.details_json), error_code=row.error_code,
+            ))
+        return {key: tuple(value) for key, value in by_report.items()}
+
+    @staticmethod
+    def _to_report(row: ReportRow, checks=()) -> Report:
         return Report(
             id=row.id,
             engineer_name=row.engineer_name,
@@ -125,4 +168,5 @@ class SQLAlchemyReportStore:
             classification_rationale=row.classification_rationale,
             requires_review=row.requires_review,
             review_reasons=tuple(json.loads(row.review_reasons_json)),
+            checks=checks,
         )
