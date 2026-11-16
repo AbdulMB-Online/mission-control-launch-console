@@ -11,11 +11,11 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G5 | Severity and deadlines | 10 | Passed | 10/10 |
 | G6 | Structured classification and fallback | 10 | Passed | 10/10 |
 | G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
-| G8 | Draft/evaluation and human approval | 10 | Loop verified; scheduling and human approval open | Not assessed |
+| G8 | Draft/evaluation and human approval | 10 | Loop/recovery verified; human approval open | Not assessed |
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6 and G7 are verified after separate explicit approvals. G8's bounded loop is verified after approval; scheduling/recovery needs its own test checkpoint. G8 cannot receive full credit before the human-approval workflow in branch 4.
+**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6/G7 are fully verified; G8's bounded loop and scheduling/recovery are verified after separate approvals. Branch 3 is ready for its focused PR review. G8 remains unassessed until the human-approval workflow in branch 4; G9 has not started.
 
 ## G1: required evidence
 
@@ -273,3 +273,38 @@ Migration 0007 adds report status/error and round metadata plus briefing history
 | Repository audit | 88 required files match the allowlist; whitespace and `git diff --check` pass. Local references, logs, scratch files, secrets and generated output remain ignored. |
 
 This approved sub-batch is complete; **verified rubric total remains 75/100**. Scheduling/restart recovery is the next test-review checkpoint on the same branch. Parent MIS-11 stays in progress; no G9 work begins.
+
+## G8 / MIS-11: scheduling/recovery red checkpoint, 2026-11-16
+
+Same branch: `abdul2shaik/mis-11-03-featureai-pipeline`. Passing bounded loop committed locally at `57c6b6a`. The user confirmed this work belongs to branch 3 and approved it with **“ok go ahead”**, then resumed after interruption. The following records the checkpoint before implementation.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Responsive filing and serialization | Filing returns 201 with queued state while classification is gated; health/read/filing remain available. Process one report at a time, with that report's three checks still concurrent. |
+| Duplicate scheduling | Repeated scheduling cannot claim an already-processing/completed report or repeat its model calls. |
+| Commit-before-scheduling recovery | Startup finds and processes reports saved as queued even when the previous process never scheduled their task. |
+| Interrupted work | Startup marks processing reports failed/interrupted, retains checks/draft history and closes running traces with unknown usage. Do not repeat potentially billable calls. |
+| Terminal records and shutdown | Completed/failed reports never rerun on restart. Shutdown cancels and joins active work before closing gateway/database; preserve report facts and unavailable approval. |
+| Timeout and worker resilience | Enforce a total pipeline timeout without resetting the submission deadline. Unknown scheduled IDs do not break later jobs. |
+
+Observed offline: **7 expected failures / 217 passes**. All previous 215 backend tests pass, plus two new terminal-record restart cases. Failures are absent runner wiring, classification never starting automatically and processing records not being recovered. There are no import/collection/setup errors. The command stops before frontend/build; the most recent bounded-loop run passed 14 frontend tests, TypeScript checking and production build.
+
+The shared settings fixture now requests `pipeline_autostart=False`, and the filing-only subprocess test sets the matching environment flag, so earlier tests can continue to inspect pre-processing states explicitly. Dedicated lifecycle tests request autostart. The setting is not implemented yet (currently ignored); these test preparations do not alter application behavior.
+
+Only tests/shared test setup, their exact ignore exception and this evidence changed after the passing loop commit. The README development-rules section was removed in response to the user's question; operational workflow remains documented in Linear and this scorecard. No scheduling application code, migration or dependency change. Required-file audit: 89 files match the allowlist; new tests remain uncommitted/unpushed. Raw output stays ignored at `.local/validation/g8-lifecycle-red.log`. **Wait for explicit user approval before implementing this batch.** Verified total stays **75/100**; G8 remains unassessed and G9 untouched.
+
+### G8 scheduling/recovery: approved implementation verified
+
+Implemented a tracked async queue worker in the application layer. The API schedules only after the report commit and returns the immutable queued snapshot immediately. Storage atomically claims only queued reports; unknown, processing and terminal IDs do not repeat calls. One report runs at a time while its three checks remain concurrent. Startup reschedules queued work and marks interrupted processing failed, preserving committed history. Cancellation/timeout closes running traces as unavailable rather than inventing usage. Shutdown joins the worker before gateway/database cleanup.
+
+The default total timeout is 270 seconds, validated positive and capped at 270. Autostart defaults on; focused filing/unit tests explicitly disable it, while lifecycle tests exercise the actual automatic path. No new dependency or migration was needed. The README development-rules section remains removed as requested.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **224 backend + 14 frontend tests passed**, then TypeScript checking and production build. Offline, with fake responses or mocked HTTP and no real provider call. |
+| Lifecycle | All nine cases pass: responsive filing/reads, serialized reports, duplicate claims, commit-before-schedule recovery, interrupted history/trace preservation, terminal-record non-reexecution, shutdown cancellation, total timeout and worker resilience. |
+| Real HTTP/restart smoke | Isolated Uvicorn process and temporary SQLite: queued HTTP 201 → full fake pipeline completed; NO_GO, three checks, selected/evaluated briefing, pending approval and timestamps survived process restart. Six model traces remained unchanged after restart. |
+| Deployment | `make up` succeeded; API/web healthy and proxied `/healthz` returned expected fake-mode JSON. |
+| Repository audit | 90 required files exactly match the allowlist; whitespace and `git diff --check` pass. Local plan/PDF, scratch files, raw output, dependencies, databases, secrets and generated builds stay ignored. |
+
+Branch 3 implementation is ready for focused PR review; parent MIS-11 stays in progress until merge. **Verified rubric total remains 75/100**: G6 10/10 and G7 10/10, with G8 deliberately incomplete until human approval in branch 4. Browser visual review, live model quality and current rates remain unverified. Do not start branch 4 before this PR merges; continue G8 there before G9.

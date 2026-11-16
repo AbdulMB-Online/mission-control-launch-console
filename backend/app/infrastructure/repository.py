@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from dataclasses import asdict
 from decimal import Decimal
 import json
@@ -157,6 +157,49 @@ class SQLAlchemyReportStore:
                     values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
                 session.add(StepTraceRow(**values))
             await session.commit()
+
+    async def recover_pipeline(self) -> list[str]:
+        async with self.sessions() as session:
+            interrupted = (await session.scalars(select(ReportRow.id).where(
+                ReportRow.pipeline_status == "processing",
+            ))).all()
+            for report_id in interrupted:
+                await self._mark_failed(session, report_id, "interrupted")
+            queued = (await session.scalars(select(ReportRow.id).where(
+                ReportRow.pipeline_status == "queued",
+            ).order_by(ReportRow.created_at, ReportRow.id))).all()
+            await session.commit()
+            return list(queued)
+
+    async def claim_pipeline(self, report_id: str) -> bool:
+        async with self.sessions() as session:
+            result = await session.execute(update(ReportRow).where(
+                ReportRow.id == report_id, ReportRow.pipeline_status == "queued",
+            ).values(pipeline_status="processing", error_code=None))
+            await session.commit()
+            return result.rowcount == 1
+
+    async def fail_pipeline(self, report_id: str, code: str) -> None:
+        async with self.sessions() as session:
+            await self._mark_failed(session, report_id, code)
+            await session.commit()
+
+    @staticmethod
+    async def _mark_failed(session, report_id, code):
+        row = await session.get(ReportRow, report_id)
+        if row is None or row.pipeline_status != "processing":
+            return
+        row.pipeline_status = "failed"
+        row.error_code = code
+        row.requires_review = True
+        reason = "pipeline_interrupted" if code == "interrupted" else code
+        row.review_reasons_json = json.dumps(list(dict.fromkeys((*json.loads(row.review_reasons_json), reason))))
+        await session.execute(update(BriefingRow).where(BriefingRow.report_id == report_id).values(is_selected=False))
+        await session.execute(update(StepTraceRow).where(
+            StepTraceRow.report_id == report_id, StepTraceRow.status == "running",
+        ).values(status="error", error_code=code,
+                 finished_at=datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z"),
+                 input_tokens=None, cached_input_tokens=None, output_tokens=None, usage_status="unavailable"))
 
     @staticmethod
     async def _load_briefings(session, report_ids):

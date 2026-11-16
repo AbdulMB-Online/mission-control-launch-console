@@ -133,3 +133,7 @@ tmp/
 !/backend/app/domain/briefings.py
 !/backend/app/application/briefings.py
 !/backend/migrations/versions/0007_briefings.py
+
+# MIS-11 / G8: approved automatic processing and recovery tests.
+!/backend/tests/test_pipeline_lifecycle.py
+!/backend/app/application/runner.py

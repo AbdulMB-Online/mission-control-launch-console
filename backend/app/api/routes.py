@@ -19,8 +19,10 @@ Reports = Annotated[ReportService, Depends(get_reports)]
 
 
 @router.post("", status_code=201, response_model=ReportRead)
-async def file_report(submission: ReportCreate, response: Response, reports: Reports):
+async def file_report(submission: ReportCreate, response: Response, reports: Reports, request: Request):
     report = await reports.file(submission.to_submission())
+    if request.app.state.pipeline_runner is not None:
+        request.app.state.pipeline_runner.schedule(report.id)
     response.headers["Location"] = f"/api/v1/reports/{report.id}"
     return ReportRead.from_report(report)
 
