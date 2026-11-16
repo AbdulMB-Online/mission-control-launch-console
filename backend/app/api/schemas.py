@@ -1,12 +1,13 @@
 from decimal import Decimal
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
 from app.domain.reports import Report, ReportInput
 from app.domain.launch_rules import Verdict
 from app.domain.severity import Severity
+from app.application.ai_schemas import Subsystem
 
 
 def parse_reading(value: object) -> Decimal:
@@ -57,6 +58,11 @@ class ReportRead(BaseModel):
     deadline_minutes: int
     brief_by_at: str
     severity_provisional: bool
+    subsystem: Subsystem
+    classification_status: Literal["not_run", "completed", "fallback"]
+    classification_rationale: str
+    requires_review: bool
+    review_reasons: list[str]
 
     @classmethod
     def from_report(cls, report: Report) -> "ReportRead":
@@ -80,6 +86,11 @@ class ReportRead(BaseModel):
             deadline_minutes=report.deadline_minutes,
             brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
             severity_provisional=report.severity_provisional,
+            subsystem=report.subsystem,
+            classification_status=report.classification_status,
+            classification_rationale=report.classification_rationale,
+            requires_review=report.requires_review,
+            review_reasons=list(report.review_reasons),
         )
 
 

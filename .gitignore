@@ -100,3 +100,17 @@ tmp/
 # Approved G5 implementation: pure priority rules and historical migration.
 !/backend/app/domain/severity.py
 !/backend/migrations/versions/0004_priority_deadlines.py
+
+# MIS-12 / G6: approved classification and gateway tests.
+!/backend/tests/test_classification.py
+!/backend/tests/test_llm_gateway.py
+!/backend/tests/test_openai_gateway.py
+
+# Approved G6 implementation: gateway contracts/adapters and classified results.
+!/backend/app/application/llm.py
+!/backend/app/application/ai_schemas.py
+!/backend/app/application/prompts.py
+!/backend/app/infrastructure/llm/__init__.py
+!/backend/app/infrastructure/llm/fake_gateway.py
+!/backend/app/infrastructure/llm/openai_gateway.py
+!/backend/migrations/versions/0005_classification.py

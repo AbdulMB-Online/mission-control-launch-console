@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from app.domain.launch_rules import Verdict, Violation
 from app.domain.severity import Severity
@@ -28,3 +29,8 @@ class Report(ReportInput):
     deadline_minutes: int
     brief_by_at: datetime
     severity_provisional: bool
+    subsystem: str = "unknown"
+    classification_status: Literal["not_run", "completed", "fallback"] = "not_run"
+    classification_rationale: str = ""
+    requires_review: bool = False
+    review_reasons: tuple[str, ...] = ()

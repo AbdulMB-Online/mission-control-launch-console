@@ -1,6 +1,7 @@
 from typing import Protocol
 
 from app.domain.reports import Report
+from app.application.llm import LLMRequest, LLMResult, ModelTrace
 
 
 class ReportStore(Protocol):
@@ -11,3 +12,11 @@ class ReportStore(Protocol):
     async def list(self, limit: int, offset: int) -> tuple[list[Report], int]: ...
 
     async def update_priority(self, report: Report) -> None: ...
+
+    async def update_classification(self, report: Report, trace: ModelTrace) -> None: ...
+
+
+class LLMGateway(Protocol):
+    async def generate(self, request: LLMRequest) -> LLMResult: ...
+
+    async def aclose(self) -> None: ...

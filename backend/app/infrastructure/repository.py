@@ -1,4 +1,5 @@
 from datetime import datetime
+from dataclasses import asdict
 from decimal import Decimal
 import json
 
@@ -7,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.reports import Report
 from app.domain.launch_rules import Violation
-from app.infrastructure.models import ReportRow
+from app.infrastructure.models import ReportRow, StepTraceRow
+from app.application.llm import ModelTrace
 
 
 class SQLAlchemyReportStore:
@@ -36,6 +38,11 @@ class SQLAlchemyReportStore:
             deadline_minutes=report.deadline_minutes,
             brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
             severity_provisional=report.severity_provisional,
+            subsystem=report.subsystem,
+            classification_status=report.classification_status,
+            classification_rationale=report.classification_rationale,
+            requires_review=report.requires_review,
+            review_reasons_json=json.dumps(report.review_reasons),
         )
         async with self.sessions() as session:
             session.add(row)
@@ -70,6 +77,25 @@ class SQLAlchemyReportStore:
             ))
             await session.commit()
 
+    async def update_classification(self, report: Report, trace: ModelTrace) -> None:
+        # One short transaction after the model call. It cannot update launch
+        # readings, verdict, violations, timestamps, identity or human approval.
+        async with self.sessions() as session:
+            await session.execute(update(ReportRow).where(ReportRow.id == report.id).values(
+                subsystem=report.subsystem, classification_status=report.classification_status,
+                classification_rationale=report.classification_rationale,
+                requires_review=report.requires_review, review_reasons_json=json.dumps(report.review_reasons),
+                classified_severity=report.classified_severity, effective_severity=report.effective_severity,
+                deadline_minutes=report.deadline_minutes,
+                brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+                severity_provisional=report.severity_provisional,
+            ))
+            values = asdict(trace)
+            for field in ("started_at", "finished_at"):
+                values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
+            session.add(StepTraceRow(**values))
+            await session.commit()
+
     @staticmethod
     def _to_report(row: ReportRow) -> Report:
         return Report(
@@ -94,4 +120,9 @@ class SQLAlchemyReportStore:
             deadline_minutes=row.deadline_minutes,
             brief_by_at=datetime.fromisoformat(row.brief_by_at.replace("Z", "+00:00")),
             severity_provisional=row.severity_provisional,
+            subsystem=row.subsystem,
+            classification_status=row.classification_status,
+            classification_rationale=row.classification_rationale,
+            requires_review=row.requires_review,
+            review_reasons=tuple(json.loads(row.review_reasons_json)),
         )

@@ -9,13 +9,13 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G3 | Filing, validation and persistence | 10 | Passed | 10/10 |
 | G4 | Python launch limits | 15 | Passed | 15/15 |
 | G5 | Severity and deadlines | 10 | Passed | 10/10 |
-| G6 | Structured classification and fallback | 10 | Not started | Not assessed |
+| G6 | Structured classification and fallback | 10 | Passed | 10/10 |
 | G7 | Concurrent checks and injection protection | 10 | Not started | Not assessed |
 | G8 | Draft/evaluation and human approval | 10 | Not started | Not assessed |
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 55/100.** MIS-5 is complete: merged PR #1 verified at main commit `252b0a1` on 2026-11-12. Current branch: `abdul2shaik/mis-8-02-featurereport-processing`. G3, G4 and G5 are verified after separate explicit user approvals. Branch 2 implementation is ready for its focused PR review; parent MIS-8 stays in progress until merge. No branch-3 implementation has started.
+**Fully verified total: 65/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6 / MIS-12 is verified after explicit approval. G7 requires a separate red-test review and approval; G8 has not started.
 
 ## G1: required evidence
 
@@ -168,3 +168,39 @@ Migration `0004` adds durable priority columns and checks the severity/deadline 
 | Repository audit | 67 required files exactly match the allowlist; source whitespace and `git diff --check` pass. Local plan, PDF, raw evidence, dependencies, generated builds, databases and secrets remain ignored. |
 
 G5 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **55/100**. G3/G4 remain fully verified. Browser visual review remains unverified; component tests and HTTP deployment checks are the evidence obtained. Branch 2 is ready for review. Keep MIS-8 in progress until its PR merges; then start the AI branch from updated main and repeat the explicit test-review approval workflow. G6–G10 have no advance credit.
+
+## G6 / MIS-12: red checkpoint, 2026-11-15
+
+Verified PR #2 merged at `a6d8863`, containing the complete `1ab5c42` branch head. Fast-forwarded local main, then created Linear's exact branch `abdul2shaik/mis-11-03-featureai-pipeline`. The user explicitly approved this G6 batch with **“yes”** after the red-test review. The following records the checkpoint before implementation.
+
+| Test group | Intended behavior |
+| --- | --- |
+| Structured classification: 34 cases | Accept all seven subsystem values and three severities; preserve Python safety facts; keep every violation high; reject invalid enums/types, missing fields, blank/overlong rationale and extra authority fields. |
+| Conservative failures | Refusal, incomplete response, malformed output, timeout and provider failure produce unknown/high fallback and a visible review reason. Preserve available usage; sanitize errors; propagate cancellation. |
+| Prompt boundary and persistence | Keep report text outside system instructions, use a strict three-field schema and a 300-token cap, persist classification/priority/review metadata and token usage across restart. |
+| Gateway/fake: 9 cases | One injected async interface; key-free default fake; stage/round scripts independent of call order; payload, refusal, malformed output, usage, transport-failure and event-gate simulation. Scripted draft responses exercise the generic fake contract only; no drafting loop is implemented. |
+| OpenAI adapter: 14 cases | Mock HTTP transport; strict Responses schema, bounded timeout/output, no tools, no stored provider response, untrusted user data separated from instructions. Refusal/incomplete/malformed output retain usage; HTTP 401/429/503 and timeouts have no hidden retry or fake success; cancellation propagates; invalid/missing usage remains unknown. |
+
+`make test` observed **57 expected failures / 115 existing backend passes** with external networking disabled. Classification cases fail because the classification operation is absent; gateway cases fail because the contract/lifespan adapter is absent. No collection, missing dependency/import or process-startup failure is counted. The command stops before frontend/build; their most recent passing G5 run had 11 frontend tests plus TypeScript checking and production build.
+
+The strict request and refusal/incomplete cases follow the [official structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs) and [Responses API contract](https://developers.openai.com/api/reference/resources/responses/methods/create). OpenAI adapter tests intercept HTTP in memory and use only an explicit dummy key. No live call or model quality claim is made.
+
+Only three test files and their exact ignore exceptions changed, plus this scorecard. Production source, migrations and dependency locks remain identical to merged main. Required-file audit: 70 files match the allowlist. Raw log stays ignored at `.local/validation/g6-red.log`; local plan, PDF, secrets, dependencies and generated output remain ignored. Tests remain uncommitted and unpushed. G6 is unassessed and total remains **55/100**. Explain this test batch and **wait for explicit user approval before implementation**. No G7/G8 work yet.
+
+### G6: approved implementation and green assessment
+
+Implemented one injected async `LLMGateway` contract, immutable request/result metadata, a stage/round-scripted fake, and the sole OpenAI-client adapter. The application revalidates strict classification output and falls back to unknown/high with explicit review reasons. It recalculates effective priority in Python, preserves original safety facts and commits classification, review metadata and usage trace together. Database sessions are closed before awaiting model output.
+
+The current official SDK uses HTTPX2, so the adapter test harness was adjusted to intercept HTTPX2 instead of HTTPX; all behavioral assertions were retained. Locked SDK 3.51.0 and its dependencies without upgrading existing locked packages. Live gateway creation is explicit; the fake never constructs a real client. Both gateways close through the application lifespan. There are no tools or model-accessible approval operations.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **172 backend + 11 frontend tests passed**, followed by TypeScript checking and production build. External networking disabled, no real key or provider call. |
+| Classification | All 34 cases pass: seven subsystems, all severities, every violation override, invalid/extra-authority payloads, failures/refusals/incomplete replies, prompt isolation, cancellation and persisted result/usage after restart. |
+| Fake and interface | All nine gateway cases pass, including per-stage/per-round scripts and event gates independent of call order. |
+| Provider contract | All 14 OpenAI adapter cases pass through mocked HTTP: strict Responses schema, bounded output/timeouts, no tools, no hidden retries, explicit errors, retained usage and cancellation. |
+| Previous gates | All 115 previous backend and 11 frontend tests stay green, including real API process restart and upgrades of historical databases. |
+| Deployment | `make up` exited 0; API/web healthy. Proxied health and report collection return HTTP 200 with expected JSON after migration 0005. |
+| Repository audit | 77 required files exactly match the allowlist. `git diff --check` passes; scratch compiler files, local references, raw logs, secrets and generated outputs remain ignored. |
+
+G6 self-assessment: **10/10**, no unmet clauses for classification/gateway/fallback. Cumulative verified score: **65/100**. Real provider access, model quality and current prices remain unverified. Classification is an internal operation; automatic scheduling, three concurrent checks and drafting/evaluation are later work on this branch. G7/G8 have no advance credit. Parent MIS-11 remains in progress.

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, CheckConstraint, Index, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -20,6 +20,7 @@ class ReportRow(Base):
             "(effective_severity = 'low' AND deadline_minutes = 30)", name="report_priority_mapping",
         ),
         CheckConstraint("verdict = 'go' OR effective_severity = 'high'", name="report_no_go_priority"),
+        CheckConstraint("classification_status IN ('not_run', 'completed', 'fallback')", name="report_classification_status"),
         Index("ix_reports_created_id", "created_at", "id"),
     )
 
@@ -39,3 +40,35 @@ class ReportRow(Base):
     deadline_minutes: Mapped[int] = mapped_column(Integer)
     brief_by_at: Mapped[str] = mapped_column(String(27))
     severity_provisional: Mapped[bool] = mapped_column(Boolean)
+    subsystem: Mapped[str] = mapped_column(String(32))
+    classification_status: Mapped[str] = mapped_column(String(12))
+    classification_rationale: Mapped[str] = mapped_column(String(500))
+    requires_review: Mapped[bool] = mapped_column(Boolean)
+    review_reasons_json: Mapped[str] = mapped_column(Text)
+
+
+class StepTraceRow(Base):
+    __tablename__ = "step_traces"
+    __table_args__ = (
+        UniqueConstraint("report_id", "step_key", name="uq_report_step"),
+        CheckConstraint("input_tokens IS NULL OR input_tokens >= 0", name="trace_input_tokens"),
+        CheckConstraint("output_tokens IS NULL OR output_tokens >= 0", name="trace_output_tokens"),
+        CheckConstraint("cached_input_tokens IS NULL OR (cached_input_tokens >= 0 AND cached_input_tokens <= input_tokens)", name="trace_cached_tokens"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    step_key: Mapped[str] = mapped_column(String(40))
+    display_order: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(12))
+    started_at: Mapped[str] = mapped_column(String(27))
+    finished_at: Mapped[str] = mapped_column(String(27))
+    provider: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str | None] = mapped_column(String(128))
+    prompt_version: Mapped[str] = mapped_column(String(40))
+    provider_response_id: Mapped[str | None] = mapped_column(String(128))
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    cached_input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    usage_status: Mapped[str] = mapped_column(String(20))
+    error_code: Mapped[str | None] = mapped_column(String(40))
