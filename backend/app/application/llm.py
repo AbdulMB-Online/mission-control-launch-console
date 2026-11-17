@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ class ModelTrace:
     display_order: int
     status: str
     started_at: datetime
-    finished_at: datetime
+    finished_at: datetime | None
     provider: str
     model: str | None
     prompt_version: str
@@ -60,6 +61,26 @@ class ModelTrace:
     error_code: str | None
     parallel_group: str | None = None
     round_number: int | None = None
+
+
+def running_trace(report_id, step_key, order, started, gateway, prompt_version, *, parallel_group=None, round_number=None):
+    return ModelTrace(
+        id=str(uuid4()), report_id=report_id, step_key=step_key, display_order=order,
+        status="running", started_at=started, finished_at=None,
+        provider=getattr(gateway, "provider", "unknown"), model=getattr(gateway, "model", None),
+        prompt_version=prompt_version, provider_response_id=None, input_tokens=None,
+        cached_input_tokens=None, output_tokens=None, usage_status="unavailable", error_code=None,
+        parallel_group=parallel_group, round_number=round_number,
+    )
+
+
+def python_trace(report_id, step_key, order, started, finished):
+    return ModelTrace(
+        id=str(uuid4()), report_id=report_id, step_key=step_key, display_order=order,
+        status="completed", started_at=started, finished_at=finished, provider="python", model=None,
+        prompt_version="rules-v1", provider_response_id=None, input_tokens=0, cached_input_tokens=0,
+        output_tokens=0, usage_status="reported", error_code=None,
+    )
 
 
 async def guarded_generate(gateway, request: LLMRequest) -> LLMResult:

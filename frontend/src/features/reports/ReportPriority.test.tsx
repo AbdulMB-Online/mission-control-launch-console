@@ -7,6 +7,9 @@ const baseReport = {
   wind_knots: '25.000', temp_c: '4.000', fuel_pct: '98.000', note: 'Valve response lagged.',
   created_at: '2026-11-15T23:58:00.000000Z', verdict: 'go', violations: [], rule_version: 'v1',
   requires_review: false, review_reasons: [], checks: [],
+  subsystem: 'unknown', classification_status: 'not_run', classification_rationale: '',
+  pipeline_status: 'queued', error_code: null, briefings: [], selected_briefing_id: null,
+  approval_state: 'unavailable', approval: null,
 };
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

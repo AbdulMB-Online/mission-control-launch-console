@@ -4,9 +4,22 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.application.reports import ReportNotFound
+from app.api.auth import DirectorAuthenticationError
+from app.domain.approvals import ApprovalRejected
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(DirectorAuthenticationError)
+    async def unauthorized(_request: Request, _exception: DirectorAuthenticationError):
+        return JSONResponse(
+            {"error": {"code": "unauthorized", "message": "Director credentials are invalid."}},
+            status_code=401, headers={"WWW-Authenticate": "Basic"},
+        )
+
+    @app.exception_handler(ApprovalRejected)
+    async def approval_rejected(_request: Request, exception: ApprovalRejected):
+        return JSONResponse({"error": {"code": exception.code, "message": exception.message}}, status_code=exception.status_code)
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, exception: RequestValidationError):
         fields = []

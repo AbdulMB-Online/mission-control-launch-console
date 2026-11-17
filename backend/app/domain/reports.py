@@ -7,6 +7,7 @@ from app.domain.launch_rules import Verdict, Violation
 from app.domain.severity import Severity
 from app.domain.checks import CheckOutcome
 from app.domain.briefings import Briefing
+from app.domain.approvals import Approval
 
 
 @dataclass(frozen=True)
@@ -40,13 +41,15 @@ class Report(ReportInput):
     pipeline_status: Literal["queued", "processing", "completed", "failed"] = "queued"
     error_code: str | None = None
     briefings: tuple[Briefing, ...] = ()
+    approval: Approval | None = None
 
     @property
     def selected_briefing_id(self) -> str | None:
         return next((item.id for item in self.briefings if item.is_selected), None)
 
     @property
-    def approval_state(self) -> Literal["unavailable", "pending"]:
-        # Evaluation can select a draft, but only a later human approval record
-        # can establish approval. There is no model-writable approved flag.
+    def approval_state(self) -> Literal["unavailable", "pending", "approved"]:
+        if self.approval is not None:
+            return "approved"
+        # Evaluator acceptance can select a draft, never create this record.
         return "pending" if self.pipeline_status == "completed" and self.selected_briefing_id else "unavailable"

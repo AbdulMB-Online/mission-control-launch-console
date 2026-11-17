@@ -42,3 +42,51 @@ def launch_case(request, report_payload):
         "verdict": "no_go" if operator else "go",
         "violations": [{"field": field, "observed": value, "operator": operator, "limit": limit}] if operator else [],
     }
+
+
+@pytest.fixture
+def approval_settings(settings):
+    return Settings(**{**settings.model_dump(), "director_username": "test-director", "director_password": "test-director-pass"})
+
+
+@pytest.fixture
+def approval_report(approval_settings, report_payload):
+    """Build real saved analysis/drafts without adding an approval backdoor."""
+    async def create(*, wind="25.001", review=False, accepted_round=1, evaluation_error=False, state=None):
+        from decimal import Decimal
+        from sqlalchemy import text
+        from app.application.llm import LLMResult
+        from app.application.reports import ReportService
+        from app.domain.reports import ReportInput
+        from app.infrastructure.db import Database
+        from app.infrastructure.llm.fake_gateway import FakeGateway
+        from app.infrastructure.repository import SQLAlchemyReportStore
+
+        database = Database(approval_settings.database_url)
+        gateway = FakeGateway()
+        try:
+            await database.migrate()
+            service = ReportService(SQLAlchemyReportStore(database.sessions))
+            payload = {**report_payload, "wind_knots": wind}
+            report = await service.file(ReportInput(**{
+                **payload, **{key: Decimal(payload[key]) for key in ("wind_knots", "temp_c", "fuel_pct")},
+            }))
+            if state is not None:
+                async with database.engine.begin() as connection:
+                    await connection.execute(text("UPDATE reports SET pipeline_status = :state WHERE id = :id"), {"state": state, "id": report.id})
+                return await service.get(report.id)
+            gateway.script("injection", None, LLMResult(provider="fake", payload={"flagged": review, "reasons": ["Instruction-like text."] if review else []}))
+            gateway.script("missing_information", None, LLMResult(provider="fake", payload={"flagged": False, "missing_details": []}))
+            for number in range(1, 4):
+                gateway.script("evaluation", number, LLMResult(provider="fake", payload={
+                    "acceptable": number == accepted_round, "feedback": [] if number == accepted_round else [f"Revise round {number}."],
+                }))
+            if evaluation_error:
+                gateway.script("evaluation", 1, LLMResult(provider="fake", status="refused", error_code="refusal"))
+            await service.classify(report.id, gateway)
+            await service.run_checks(report.id, gateway)
+            return await service.generate_briefing(report.id, gateway)
+        finally:
+            await gateway.aclose()
+            await database.close()
+    return create

@@ -1,6 +1,7 @@
 from decimal import Decimal
 import re
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
@@ -9,6 +10,7 @@ from app.domain.launch_rules import Verdict
 from app.domain.severity import Severity
 from app.application.ai_schemas import Subsystem
 from app.domain.checks import CheckKind
+from app.domain.approvals import Approval
 
 
 def parse_reading(value: object) -> Decimal:
@@ -62,6 +64,33 @@ class BriefingRead(BaseModel):
     is_selected: bool
 
 
+class ApprovalCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    briefing_id: UUID
+    acknowledge_review: Annotated[bool, Field(strict=True)]
+
+
+class ApprovalRead(BaseModel):
+    id: str
+    report_id: str
+    briefing_id: str
+    approved_by: str
+    approved_at: str
+    review_acknowledged: bool
+    review_reasons_snapshot: list[str]
+
+    @classmethod
+    def from_approval(cls, approval: Approval):
+        return cls(
+            id=approval.id, report_id=approval.report_id, briefing_id=approval.briefing_id,
+            approved_by=approval.approved_by,
+            approved_at=approval.approved_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+            review_acknowledged=approval.review_acknowledged,
+            review_reasons_snapshot=list(approval.review_reasons_snapshot),
+        )
+
+
 class ReportRead(BaseModel):
     id: str
     engineer_name: str
@@ -89,7 +118,8 @@ class ReportRead(BaseModel):
     error_code: str | None
     briefings: list[BriefingRead]
     selected_briefing_id: str | None
-    approval_state: Literal["unavailable", "pending"]
+    approval_state: Literal["unavailable", "pending", "approved"]
+    approval: ApprovalRead | None
 
     @classmethod
     def from_report(cls, report: Report) -> "ReportRead":
@@ -132,6 +162,7 @@ class ReportRead(BaseModel):
             ) for item in report.briefings],
             selected_briefing_id=report.selected_briefing_id,
             approval_state=report.approval_state,
+            approval=ApprovalRead.from_approval(report.approval) if report.approval else None,
         )
 
 
@@ -140,3 +171,42 @@ class ReportPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class TraceRead(BaseModel):
+    id: str
+    report_id: str
+    step_key: str
+    display_order: int
+    status: Literal["running", "completed", "error"]
+    started_at: str
+    finished_at: str | None
+    provider: str
+    model: str | None
+    prompt_version: str
+    provider_response_id: str | None
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    output_tokens: int | None
+    usage_status: Literal["reported", "unavailable"]
+    error_code: str | None
+    parallel_group: str | None
+    round_number: int | None
+    cost_usd: str | None
+    rate_snapshot: dict[str, str] | None
+
+
+class TraceTotals(BaseModel):
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+    usage_complete: bool
+    known_cost_usd: str
+    cost_complete: bool
+    simulated: bool
+
+
+class TracePage(BaseModel):
+    report_id: str
+    steps: list[TraceRead]
+    totals: TraceTotals

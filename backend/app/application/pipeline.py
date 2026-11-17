@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from app.application.ai_schemas import InjectionCheck, MissingInformationCheck, ToneCheck
-from app.application.llm import LLMRequest, ModelTrace, guarded_generate, model_error, token_usage
+from app.application.llm import LLMRequest, guarded_generate, model_error, token_usage, running_trace
 from app.application.prompts import CHECK_BOUNDARY, CHECK_SYSTEM, report_data
 from app.domain.checks import CheckOutcome
 
@@ -15,8 +15,11 @@ from app.domain.checks import CheckOutcome
 CHECK_SCHEMAS = {"injection": InjectionCheck, "missing_information": MissingInformationCheck, "tone": ToneCheck}
 
 
-async def analyze_checks(report, gateway, clock):
+async def analyze_checks(report, gateway, clock, store):
     group = str(uuid4())
+    pending = {kind: running_trace(report.id, kind, 50 + index, clock(), gateway, f"{kind}-v1", parallel_group=group)
+               for index, kind in enumerate(CHECK_SCHEMAS)}
+    await store.start_traces(list(pending.values()))
 
     async def check(kind, order):
         request = LLMRequest(
@@ -24,8 +27,8 @@ async def analyze_checks(report, gateway, clock):
             data={"report": report_data(report)}, schema=CHECK_SCHEMAS[kind].model_json_schema(),
             max_output_tokens=500, prompt_version=f"{kind}-v1",
         )
-        started = clock()
         response = await guarded_generate(gateway, request)
+        finished = clock()
         code = model_error(response)
         payload = None
         if code is None:
@@ -39,17 +42,19 @@ async def analyze_checks(report, gateway, clock):
             outcome = CheckOutcome(kind, "completed", flagged, values)
         else:
             outcome = CheckOutcome(kind, "error", None, {}, code)
-        trace = ModelTrace(
-            id=str(uuid4()), report_id=report.id, step_key=kind, display_order=order,
-            status=outcome.status, started_at=started, finished_at=clock(),
+        trace = replace(pending[kind],
+            status=outcome.status, finished_at=finished,
             provider=response.provider, model=response.model, prompt_version=request.prompt_version,
             provider_response_id=response.response_id, error_code=code, parallel_group=group,
             **token_usage(response.input_tokens, response.cached_input_tokens, response.output_tokens),
         )
+        # Independent short sessions retain completed siblings even if another
+        # check is later cancelled. No session spans a model call.
+        await store.finish_trace(trace)
         return outcome, trace
 
-    # No storage/session object enters these tasks. Each gets only immutable
-    # report data and the async gateway. Capture stage errors inside each call.
+    # Each storage operation opens its own session. No shared session enters
+    # concurrent calls; stage failures are captured independently.
     tasks = [asyncio.create_task(check(kind, 50 + index)) for index, kind in enumerate(CHECK_SCHEMAS)]
     try:
         results = await asyncio.gather(*tasks)

@@ -11,11 +11,11 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G5 | Severity and deadlines | 10 | Passed | 10/10 |
 | G6 | Structured classification and fallback | 10 | Passed | 10/10 |
 | G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
-| G8 | Draft/evaluation and human approval | 10 | Loop/recovery verified; human approval open | Not assessed |
-| G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
+| G8 | Draft/evaluation and human approval | 10 | Passed | 10/10 |
+| G9 | Trace cards, tokens and Python costs | 10 | Passed | 10/10 |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6/G7 are fully verified; G8's bounded loop and scheduling/recovery are verified after separate approvals. Branch 3 is ready for its focused PR review. G8 remains unassessed until the human-approval workflow in branch 4; G9 has not started.
+**Fully verified total: 95/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15 at `2c32bdd`; G9 is complete through MIS-16 at `2e87175`. Branch 4's final acceptance checks pass and it is ready for PR review; its parent remains in progress until merge. G10/final integration belongs to branch 5 after that merge.
 
 ## G1: required evidence
 
@@ -308,3 +308,104 @@ The default total timeout is 270 seconds, validated positive and capped at 270. 
 | Repository audit | 90 required files exactly match the allowlist; whitespace and `git diff --check` pass. Local plan/PDF, scratch files, raw output, dependencies, databases, secrets and generated builds stay ignored. |
 
 Branch 3 implementation is ready for focused PR review; parent MIS-11 stays in progress until merge. **Verified rubric total remains 75/100**: G6 10/10 and G7 10/10, with G8 deliberately incomplete until human approval in branch 4. Browser visual review, live model quality and current rates remain unverified. Do not start branch 4 before this PR merges; continue G8 there before G9.
+
+## G8 / MIS-15: human-approval red checkpoint, 2026-11-16
+
+Verified PR #3 merged at `ef32061`, containing reviewed branch head `9af6a47`. Fast-forwarded main and created Linear's exact branch `abdul2shaik/mis-14-04-featuredirector-console`. The user explicitly approved these 31 expected failures with **“go”** before implementation. The following records the original red checkpoint.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Director authorization | Backend validates configured HTTP Basic credentials; absent/bad credentials and client role headers cannot approve. Response identity/time come from the server; forged body metadata is rejected. |
+| Eligibility and acknowledgment | Require a completed pipeline and selected valid draft. Reject queued/processing/failed, missing/foreign/nonselected drafts and duplicate approvals. Strict boolean acknowledgment required for injection, exhausted evaluations and evaluation errors; snapshot reasons with approval. |
+| Durable safety boundary | Human approval of a NO_GO briefing does not alter readings, verdict, violations, severity, deadline, history or clearance. Evaluator acceptance alone creates no approval. Approval and its deterministic trace survive restart. |
+| Concurrent requests | Two simultaneous valid requests produce exactly one 201, one 409, one approval row and one approval trace. |
+| Director review UI | Inspect original data, canonical verdict/violations/deadline, selected and earlier drafts, feedback and all checks. Pending human approval is separate from evaluator status. Explicit confirmation uses credentials and review acknowledgment; no credential storage; rejected requests do not mark approved. |
+| Active states and untrusted text | Poll selected processing reports, stop polling on unmount, disable unavailable approval and render model markup as text. |
+
+Offline runs observed **22 expected backend failures / 224 existing passes** and **9 expected frontend failures / 14 existing passes**. All 238 earlier tests remain green. Backend failures are the absent approval endpoint (404/default error shape); frontend failures are the absent Review report control/Director view. There are no import/collection/setup errors.
+
+Only tests/shared approval fixture and exact ignore exceptions changed, plus this scorecard. Production code, migrations and dependency locks remain identical to merged main. Required-file audit: 93 files match the allowlist. Raw logs stay ignored at `.local/validation/g8-approval-backend-red.log` and `g8-approval-frontend-red.log`. Tests remain uncommitted/unpushed. **Wait for explicit user approval before implementing this batch.** G8 remains unassessed and total stays **75/100**; G9 untouched. README development rules remain removed.
+
+### G8: human approval implemented and complete gate verified
+
+The user approved implementation after reviewing the red checkpoint. The approval endpoint validates configured Director credentials, accepts only a selected briefing ID and strict review acknowledgment, and derives identity/time on the server. A separate application approval capability is unavailable to the pipeline. SQLite reserves the writer before checking eligibility; approval and its zero-token trace commit together with unique report/draft constraints. Approval does not update report facts, draft history or launch decisions. Migration 0008 adds approval rows without rebuilding existing tables.
+
+The Director view shows original data, canonical GO/NO_GO and violations, priority/deadline, selected and earlier drafts, evaluation feedback, advisory checks and human approval status. Selected active reports poll every two seconds and stop on unmount. The confirmation requires credentials and acknowledgment when flagged; credentials are never stored and are cleared after the request. Model text renders as text. The README documents actual usage and the local single-Director scope; development rules remain removed.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **246 backend + 23 frontend tests passed**, then TypeScript checking and production build. External networking disabled; no real API key/call. |
+| Entire loop | All 20 existing loop cases pass: separate calls, feedback propagation, acceptance in rounds 1–3, maximum three rounds, evaluator/draft failures, persistent history and pending human state. Nine lifecycle cases remain green. |
+| Approval safeguards | All 22 new backend cases pass: authentication, forged metadata, strict acknowledgment, incomplete/failed/missing/foreign/nonselected drafts, duplicates, simultaneous requests, identity/time, review snapshot, restart and unchanged NO_GO facts. |
+| Review UI | All nine new component cases pass: original/canonical data, history/feedback/checks, explicit confirmation and credentials, flagged acknowledgment, no credential storage, rejection handling, unavailable states, safe markup and polling cleanup. |
+| Real HTTP/restart smoke | Temporary SQLite and real Uvicorn process: queued → complete fake pipeline → 401 without auth → 201 approval → 409 duplicate → process restart. Full approved report retained, including NO_GO/violations/priority/deadline/history. Exactly one approval and one approval trace; migration 0008. |
+| Deployment | `make up` exited 0 with healthy API/web; proxied `/healthz` returned expected fake-mode JSON. |
+| Required-file audit | 99 required files exactly match the allowlist; `git diff --check` passes. Local plan/PDF, smoke script, raw logs, secrets, databases and generated output stay ignored. |
+
+G8 self-assessment: **10/10**, no unmet rubric clauses. Cumulative verified score: **85/100**. Browser visual review and live model quality remain unverified; component, HTTP and restart checks are the evidence obtained. G9 requires its own red-test explanation and explicit approval before implementation. Parent MIS-14 remains in progress until its focused PR is merged.
+
+## G9 / MIS-16: cost and trace red checkpoint, 2026-11-17
+
+Same canonical MIS-14 branch, based on passing G8 commit `2c32bdd`. The user explicitly approved the 40 expected failures with **“move on”** before implementation. The following records the original red checkpoint.
+
+| New cases | Intended behavior |
+| --- | --- |
+| 23 Python arithmetic cases | Decimal calculation subtracts cached tokens from standard input, retains tiny costs, sums before rounding, rejects invalid/missing counts and treats unknown model rates as unknown cost. Fake/Python/human operations have no provider charge. |
+| 11 trace API cases | Record filing, Python launch limits, provisional/resolved priority, all classification/check/draft/evaluation calls and human approval exactly once. Preserve timing, running-call identity and parallel grouping. Include known usage/cost for invalid/refused/incomplete responses. Unknown usage/rates produce incomplete subtotals. Persist rate snapshots and amounts across rate changes/restart; reading traces makes no model call. |
+| 6 console cases | One article per executed step, tokens and cached subset, timing, round labels and parallel grouping; display server totals without browser arithmetic, retain small amounts, clearly label unknown/incomplete and simulated values, and keep briefing access when traces cannot load. |
+
+The [official GPT-5.4 mini model page](https://developers.openai.com/api/docs/models/gpt-5.4-mini), checked 2026-11-17, lists standard text rates per million tokens of $0.75 input, $0.075 cached input and $4.50 output. These proposed versioned rates give exactly **$0.001065** for 1000 total input, 200 cached input and 100 total output tokens. Cached tokens are a subset; output already includes reasoning usage. This console uses standard Responses requests, without Batch/Flex/regional pricing or tools.
+
+Observed offline: **34 expected new backend failures / 246 existing passes**, **6 expected new frontend failures / 23 existing passes**. All 269 prior tests pass. Cost tests explicitly assert the missing Python calculator at test execution rather than failing collection. API cases reach the missing `/traces` route (404/default error envelope); UI cases reach the existing Director review but cannot find the absent execution-trace region. No collection/setup/network failures count as behavior evidence.
+
+Production source, migrations and dependency locks remain identical to the passing G8 commit. Only three new test files, exact ignore exceptions and this scorecard changed. Required-file audit: 102 files match the allowlist. Failing tests remain uncommitted/unpushed; raw logs stay ignored in `.local/validation/g9-backend-red.log` and `g9-frontend-red.log`. G9 earns no advance credit; total stays **85/100**. Explain the tests and **wait for explicit user approval before implementing G9**, per the user's TDD checkpoint rule.
+
+### G9: approved implementation and complete gate verified
+
+Implemented the pure Python Decimal calculator and versioned standard-price snapshot. Cached input is subtracted from standard input; total output is counted once. Each call persists its original rate and exact decimal cost. Missing/invalid usage and unknown rates stay unknown; Python/human steps and explicit fake simulations incur zero provider charge. Totals sum saved amounts without per-call rounding or repricing on read.
+
+Filing, launch limits and provisional priority commit with the report. Classification commits its resolved Python priority trace. Model traces are committed as running before calls, then completed under the same identity. Parallel checks use separate short storage sessions and persist completed siblings independently. No transaction spans a model request. Every round and error remains visible; cancellation/recovery closes running calls with unknown usage/cost. Approval adds its zero-token trace atomically. Migration 0009 changes only the trace leaf table and preserves existing report/check/draft/approval relationships; historical uncaptured prices remain unknown.
+
+The trace API exposes ordered steps and server totals. The console displays one article per step, nested parallel groups, timestamps, model/prompt/rate metadata, input/cached/output counts and server-provided decimal amounts. Tiny costs remain visible; unknown/incomplete and simulated values are explicit. Trace loading/failure is independent of briefing approval. Active traces poll and cancel on cleanup; approval refreshes the trace. No dependency was added. Existing model-focused fakes now implement the trace lifecycle contract, and model-only persistence assertions filter out newly added Python steps.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **280 backend + 29 frontend tests passed**, followed by TypeScript checking and production build. No API key or external networking. |
+| Arithmetic | All 23 new cases pass: exact $0.001065 example, fully cached/zero/tiny/large usage, invalid/missing counts, unknown prices, deterministic/fake zero charge and summation before rounding. |
+| Trace API | All 11 new cases pass: fifteen unique steps for three rounds plus approval; original running identity/time, parallel grouping, known usage on invalid/refused/incomplete calls, incomplete totals, simulated data and persisted prices across rate changes/restart. |
+| Console | All six new component cases pass: step cards, rounds/groups/timing/tokens, server-owned totals/tiny values, failure/unknown states, running calls without invented finish time, simulation and independent retrieval errors. |
+| Real HTTP/restart | Temporary SQLite and real Uvicorn process: six scripted-metadata calls total exactly **$0.006390**, with 6000 input / 1200 cached / 600 output tokens and eleven steps after approval. Fake trace is explicitly simulated/zero. Full reports, NO_GO/violations, approval, traces and costs survive process restart unchanged. No paid call. |
+| Legacy migration | Isolated 0008 → 0009 upgrade preserves reports, checks, drafts, approvals, trace IDs and timestamps. Uncaptured historical provider rates remain unknown; no invented prices. |
+| Deployment | `make up` exited 0; API/web healthy. Proxied health and rebuilt JS/CSS assets return successfully with trace UI/style content. |
+| Repository audit | 106 required files exactly match the allowlist. `git diff --check` passes; local plan/PDF, smoke scripts/logs, credentials, databases, dependencies and build output remain ignored. |
+
+G9 self-assessment: **10/10**, no unmet rubric clauses. Cumulative verified score: **95/100**. Browser visual review and live model quality remain unverified; component/HTTP evidence is reported without a screenshot claim. No branch 5 starts until branch 4 is reviewed and merged.
+
+## MIS-14 final acceptance: overdue-display red checkpoint
+
+G9 is committed at `2e87175`. The existing branch-4 checklist also calls for an overdue state. The UI preserves and shows the server UTC deadline, but does not yet flag active work past that deadline. This is a small remaining branch acceptance item; it does not change Python deadline calculation or add rubric points.
+
+The user explicitly approved these two failures with **“ok”** before implementation. The following records the original red checkpoint.
+
+Two tests were added to the existing Director review test file before changing production code:
+
+- An already overdue processing report shows **Briefing overdue**, keeps its exact server deadline and NO_GO verdict, and leaves approval disabled with no approval request.
+- A processing report initially before its deadline becomes visibly overdue when the normal two-second polling cycle crosses it; the deadline remains anchored to submission.
+
+Offline frontend run: **2 expected failures / 29 existing passes**. Both failures are the missing overdue label; the existing app, polling, review and trace UI work normally. The previous complete run passed 280 backend + 29 frontend tests, type checking and build. Production code remains identical to `2e87175`; only the test file and this checkpoint changed. All 106 files still match the allowlist. Tests are local/uncommitted and raw output is ignored at `.local/validation/mis14-deadline-red.log`.
+
+Proposed implementation: a clearly labeled warning for queued/processing reports when current time passes the server's `brief_by_at`, refreshed through existing polling. Do not calculate/reset deadlines, rewrite verdicts, enable approval or introduce another scheduler. **Wait for explicit approval before implementing**, per the user's TDD rule. Verified rubric total remains **95/100**; MIS-14 remains in progress and its PR is not ready until this acceptance item is green.
+
+### MIS-14 final acceptance: approved overdue display verified
+
+Implemented the warning for queued/processing reports whose original server deadline is past. Existing two-second polling updates the display; no new timer, scheduler, backend state or deadline rule was added. Approval eligibility and canonical launch facts remain unchanged. Terminal reports use their completed/failed state rather than an active-processing warning.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **280 backend + 31 frontend tests passed**, followed by TypeScript checking and production build. Offline; no key or live model call. |
+| Overdue cases | Both new cases pass: already overdue active work and crossing the deadline during polling. Exact server deadline/NO_GO retained; approval remains unavailable with no automatic request. |
+| Prior gates | All prior approval, loop, concurrency, persistence, trace and cost tests remain green. G8 and G9 stay at 10/10 each; total stays **95/100**. |
+| Deployment | `make up` exited 0 with healthy API/web. Proxied health and final JS/CSS assets return successfully; warning text/style are present in deployed assets. |
+| Repository audit | All 106 required files exactly match the allowlist; `git diff --check` passes. PR notes, local plan/PDF, raw logs, scripts, secrets, data, dependencies and build output remain ignored. No new tracked file was needed. |
+
+Branch 4 implementation is ready for its single focused PR. MIS-15/MIS-16 are Done; parent MIS-14 remains In Progress pending review/merge. The PR title must include MIS-14 and use the parent's canonical branch. Browser visual review and live model quality remain unverified; do not claim either. Begin branch 5 only from updated main after this PR merges.

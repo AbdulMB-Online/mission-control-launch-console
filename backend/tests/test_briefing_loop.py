@@ -23,13 +23,21 @@ class MemoryReports:
     def __init__(self):
         self.traces = []
 
-    async def save(self, report):
+    async def save(self, report, traces=()):
         self.report = report
+
+    # These model-focused fakes collect final outcomes; SQLite tests cover
+    # running trace persistence and deterministic step accounting.
+    async def start_traces(self, traces):
+        pass
+
+    async def finish_trace(self, trace):
+        pass
 
     async def get(self, report_id):
         return self.report
 
-    async def update_classification(self, report, trace):
+    async def update_classification(self, report, trace, priority_trace=None):
         self.report = report
         self.traces.append(trace)
 
@@ -227,7 +235,7 @@ async def test_drafts_evaluations_usage_and_pending_approval_survive_restart(set
         assert report.approval_state == "pending"
         async with database.engine.connect() as connection:
             traces = (await connection.execute(text(
-                "SELECT step_key, input_tokens, output_tokens FROM step_traces WHERE report_id = :id"
+                "SELECT step_key, input_tokens, output_tokens FROM step_traces WHERE report_id = :id AND provider = 'fake'"
             ), {"id": report.id})).all()
             assert {row.step_key for row in traces} >= {"draft_1", "evaluation_1", "draft_2", "evaluation_2"}
             assert all(row.input_tokens == 100 and row.output_tokens == 20 for row in traces)

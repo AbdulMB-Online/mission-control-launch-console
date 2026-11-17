@@ -65,7 +65,7 @@ class StepTraceRow(Base):
     display_order: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(12))
     started_at: Mapped[str] = mapped_column(String(27))
-    finished_at: Mapped[str] = mapped_column(String(27))
+    finished_at: Mapped[str | None] = mapped_column(String(27))
     provider: Mapped[str] = mapped_column(String(20))
     model: Mapped[str | None] = mapped_column(String(128))
     prompt_version: Mapped[str] = mapped_column(String(40))
@@ -77,6 +77,8 @@ class StepTraceRow(Base):
     error_code: Mapped[str | None] = mapped_column(String(40))
     parallel_group: Mapped[str | None] = mapped_column(String(36))
     round_number: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[str | None] = mapped_column(Text)
+    rate_snapshot_json: Mapped[str | None] = mapped_column(Text)
 
 
 class PipelineCheckRow(Base):
@@ -118,3 +120,19 @@ class BriefingRow(Base):
     feedback_json: Mapped[str] = mapped_column(Text)
     evaluated_at: Mapped[str | None] = mapped_column(String(27))
     is_selected: Mapped[bool] = mapped_column(Boolean)
+
+
+class ApprovalRow(Base):
+    __tablename__ = "approvals"
+    __table_args__ = (
+        UniqueConstraint("report_id", name="uq_approval_report"),
+        UniqueConstraint("briefing_id", name="uq_approval_briefing"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"))
+    briefing_id: Mapped[str] = mapped_column(ForeignKey("briefings.id", ondelete="CASCADE"))
+    approved_by: Mapped[str] = mapped_column(String(100))
+    approved_at: Mapped[str] = mapped_column(String(27))
+    review_acknowledged: Mapped[bool] = mapped_column(Boolean)
+    review_reasons_snapshot_json: Mapped[str] = mapped_column(Text)
