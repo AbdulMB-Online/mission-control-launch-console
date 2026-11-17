@@ -118,3 +118,19 @@ class BriefingRow(Base):
     feedback_json: Mapped[str] = mapped_column(Text)
     evaluated_at: Mapped[str | None] = mapped_column(String(27))
     is_selected: Mapped[bool] = mapped_column(Boolean)
+
+
+class ApprovalRow(Base):
+    __tablename__ = "approvals"
+    __table_args__ = (
+        UniqueConstraint("report_id", name="uq_approval_report"),
+        UniqueConstraint("briefing_id", name="uq_approval_briefing"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"))
+    briefing_id: Mapped[str] = mapped_column(ForeignKey("briefings.id", ondelete="CASCADE"))
+    approved_by: Mapped[str] = mapped_column(String(100))
+    approved_at: Mapped[str] = mapped_column(String(27))
+    review_acknowledged: Mapped[bool] = mapped_column(Boolean)
+    review_reasons_snapshot_json: Mapped[str] = mapped_column(Text)

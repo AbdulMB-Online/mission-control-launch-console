@@ -11,6 +11,9 @@ const saved = {
   classified_severity: null, effective_severity: 'high', deadline_minutes: 5,
   brief_by_at: '2026-11-12T12:05:00.000000Z', severity_provisional: true,
   requires_review: false, review_reasons: [], checks: [],
+  verdict: 'go', violations: [], rule_version: 'v1', subsystem: 'unknown',
+  classification_status: 'not_run', classification_rationale: '', pipeline_status: 'queued', error_code: null,
+  briefings: [], selected_briefing_id: null, approval_state: 'unavailable', approval: null,
 };
 const postMock = vi.fn();
 const fetchMock = vi.fn();

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from typing import Protocol
+from datetime import datetime
 
 from app.domain.reports import Report
 from app.application.llm import LLMRequest, LLMResult, ModelTrace
+from app.domain.approvals import Approval
 
 
 class ReportStore(Protocol):
@@ -32,3 +34,10 @@ class LLMGateway(Protocol):
     async def generate(self, request: LLMRequest) -> LLMResult: ...
 
     async def aclose(self) -> None: ...
+
+
+class HumanApprovalStore(Protocol):
+    """Approval capability is separate from the pipeline's ReportStore contract."""
+
+    async def approve_briefing(self, report_id: str, briefing_id: str, director: str,
+                              acknowledge_review: bool, approved_at: datetime) -> Approval: ...

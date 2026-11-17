@@ -1,16 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchReports, type Report, type ReportPage } from '../../api/reports';
 import { Icon } from '../../app/Icon';
 import { ReportForm } from './ReportForm';
 import { ReportChecks } from './ReportChecks';
+import { DirectorReview } from './DirectorReview';
 
-export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken: number; onTotalChange: (total: number) => void }) {
+export function ReportWorkspace({ refreshToken, onTotalChange, onReviewChange }: { refreshToken: number; onTotalChange: (total: number) => void; onReviewChange?: (open: boolean) => void }) {
   const [page, setPage] = useState<ReportPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [filed, setFiled] = useState(false);
   const activeLoad = useRef<AbortController | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = page?.items.find(report => report.id === selectedId);
+  const updateReport = useCallback((report: Report) => {
+    setPage(current => current ? { ...current, items: current.items.map(item => item.id === report.id ? report : item) } : current);
+  }, []);
+  function selectReport(id: string | null) { setSelectedId(id); onReviewChange?.(id !== null); }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,9 +54,10 @@ export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken:
       {loadError && <div className="report-load-error" role="alert">Could not load reports. Refresh the connection to try again.</div>}
       {loading && <p className="report-loading" role="status">Loading saved reports…</p>}
       {!showForm && !loading && !loadError && !page?.items.length && <div className="desk-body"><div className="desk-grid" aria-hidden="true" /><ReportIllustration /><div className="empty-copy"><h3>No reports filed yet</h3><p>File an anomaly with the readings and context your Flight Director needs.</p></div><div className="filing-notice"><Icon name="report" /><span>Reports are saved before they appear in the queue.</span></div></div>}
-      {Boolean(page?.items.length) && <div className="report-list">{page!.items.map(report => <article className="saved-report" key={report.id}>
+      {Boolean(page?.items.length) && <div className={selected ? 'director-workspace' : ''}><div className={`report-list ${selected ? 'compact-queue' : ''}`} aria-label="Saved reports">{page!.items.map(report => <article className={`saved-report ${selectedId === report.id ? 'selected-report' : ''}`} key={report.id}>
         <div className="saved-report-heading"><span className="station-badge">{report.station}</span><time dateTime={report.created_at}>{new Date(report.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC</time></div>
         <h3>{report.engineer_name}</h3>
+        {!selected && <>
         <div className={`report-priority priority-${report.effective_severity}`}>
           <div className="priority-description"><strong>{{ high: 'High priority', medium: 'Medium priority', low: 'Low priority' }[report.effective_severity]}</strong>
             {report.severity_provisional && <span>Provisional — awaiting classification</span>}
@@ -59,8 +67,12 @@ export function ReportWorkspace({ refreshToken, onTotalChange }: { refreshToken:
         <dl className="saved-readings"><div><dt>Wind</dt><dd>{report.wind_knots}<span> knots</span></dd></div><div><dt>Temperature</dt><dd>{report.temp_c}<span> °C</span></dd></div><div><dt>Fuel</dt><dd>{report.fuel_pct}<span> %</span></dd></div></dl>
         <p className="saved-note">{report.note}</p>
         <ReportChecks report={report} />
+        </>}
         <span className="report-reference">Report {report.id.slice(0, 8)}</span>
-      </article>)}</div>}
+        <button className="review-report" aria-pressed={selectedId === report.id} onClick={() => selectReport(report.id)}>Review report</button>
+      </article>)}</div>
+        {selected && <DirectorReview key={selected.id} initialReport={selected} refreshToken={refreshToken} onReportChanged={updateReport} onClose={() => selectReport(null)} />}
+      </div>}
       <footer className="desk-footer"><span><span className="quiet-dot" />{page ? `${page.total} saved ${page.total === 1 ? 'report' : 'reports'}` : 'Persistent report storage'}</span><span>{page && page.total > 20 ? 'Showing latest 20' : 'Every report stays on record'}</span></footer>
     </section>
   );

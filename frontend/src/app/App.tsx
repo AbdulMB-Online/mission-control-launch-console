@@ -7,6 +7,7 @@ export default function App() {
   const [connection, setConnection] = useState<Connection>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [reportCount, setReportCount] = useState(0);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,15 +66,15 @@ export default function App() {
           </div>
           <div className="operational-note"><Icon name="shield" /><p>Launch limits are fixed. Briefings always need the Flight Director’s approval.</p><span className="note-end">Human authority</span></div>
 
-          <div className="workspace-grid">
-            <ReportWorkspace refreshToken={attempt} onTotalChange={setReportCount} />
+          <div className={`workspace-grid ${reviewOpen ? 'review-layout' : ''}`}>
+            <ReportWorkspace refreshToken={attempt} onTotalChange={setReportCount} onReviewChange={setReviewOpen} />
 
-            <aside className="readiness-column" aria-label="Operational readiness">
+            {!reviewOpen && <aside className="readiness-column" aria-label="Operational readiness">
               <section className="assessment-panel" id="launch-status" aria-labelledby="assessment-heading">
                 <header><h2 id="assessment-heading">Launch assessment</h2><Icon name="shield" /></header>
-                <div className="assessment-status"><span />{reportCount ? 'Awaiting launch checks' : 'Awaiting readings'}</div>
+                <div className="assessment-status"><span />{reportCount ? 'Select a report' : 'Awaiting readings'}</div>
                 <p className="verdict-placeholder">Not assessed</p>
-                <p className="assessment-explanation">{reportCount ? 'Reports are saved. Launch assessment is pending.' : 'A launch verdict requires wind, temperature, and fuel readings.'}</p>
+                <p className="assessment-explanation">{reportCount ? 'Open a report to inspect its launch verdict and briefing.' : 'A launch verdict requires wind, temperature, and fuel readings.'}</p>
                 <div className="assessment-boundary"><Icon name="lock" /><span>Briefing approval does not authorize launch.</span></div>
               </section>
               <section className={`connection-panel ${failed ? 'connection-error' : ''}`} aria-labelledby="connection-heading">
@@ -86,7 +87,7 @@ export default function App() {
                 </dl>
                 {failed && <button className="retry-button" onClick={refresh}><Icon name="refresh" />Retry connection</button>}
               </section>
-            </aside>
+            </aside>}
           </div>
 
           <section className="workflow-guide" id="workflow-guide" aria-labelledby="workflow-heading">

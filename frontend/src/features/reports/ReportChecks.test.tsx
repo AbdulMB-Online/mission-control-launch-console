@@ -10,6 +10,9 @@ const report = {
   classified_severity: 'low', effective_severity: 'high', deadline_minutes: 5,
   brief_by_at: '2026-11-16T00:03:00.000000Z', severity_provisional: false,
   requires_review: true, review_reasons: ['injection_flagged'],
+  subsystem: 'propulsion', classification_status: 'completed', classification_rationale: 'Valve anomaly.',
+  pipeline_status: 'processing', error_code: null, briefings: [], selected_briefing_id: null,
+  approval_state: 'unavailable', approval: null,
 };
 type CheckFixture = { kind: string; status: string; flagged: boolean | null; details: Record<string, unknown>; error_code: string | null };
 const cleanChecks: CheckFixture[] = [

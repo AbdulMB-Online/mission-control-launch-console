@@ -1,6 +1,7 @@
 from decimal import Decimal
 import re
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
@@ -9,6 +10,7 @@ from app.domain.launch_rules import Verdict
 from app.domain.severity import Severity
 from app.application.ai_schemas import Subsystem
 from app.domain.checks import CheckKind
+from app.domain.approvals import Approval
 
 
 def parse_reading(value: object) -> Decimal:
@@ -62,6 +64,33 @@ class BriefingRead(BaseModel):
     is_selected: bool
 
 
+class ApprovalCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    briefing_id: UUID
+    acknowledge_review: Annotated[bool, Field(strict=True)]
+
+
+class ApprovalRead(BaseModel):
+    id: str
+    report_id: str
+    briefing_id: str
+    approved_by: str
+    approved_at: str
+    review_acknowledged: bool
+    review_reasons_snapshot: list[str]
+
+    @classmethod
+    def from_approval(cls, approval: Approval):
+        return cls(
+            id=approval.id, report_id=approval.report_id, briefing_id=approval.briefing_id,
+            approved_by=approval.approved_by,
+            approved_at=approval.approved_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+            review_acknowledged=approval.review_acknowledged,
+            review_reasons_snapshot=list(approval.review_reasons_snapshot),
+        )
+
+
 class ReportRead(BaseModel):
     id: str
     engineer_name: str
@@ -89,7 +118,8 @@ class ReportRead(BaseModel):
     error_code: str | None
     briefings: list[BriefingRead]
     selected_briefing_id: str | None
-    approval_state: Literal["unavailable", "pending"]
+    approval_state: Literal["unavailable", "pending", "approved"]
+    approval: ApprovalRead | None
 
     @classmethod
     def from_report(cls, report: Report) -> "ReportRead":
@@ -132,6 +162,7 @@ class ReportRead(BaseModel):
             ) for item in report.briefings],
             selected_briefing_id=report.selected_briefing_id,
             approval_state=report.approval_state,
+            approval=ApprovalRead.from_approval(report.approval) if report.approval else None,
         )
 
 

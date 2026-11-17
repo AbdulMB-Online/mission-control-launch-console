@@ -6,14 +6,16 @@ from decimal import Decimal
 import json
 from uuid import uuid4
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.reports import Report
 from app.domain.launch_rules import Violation
 from app.domain.checks import CheckOutcome
 from app.domain.briefings import Briefing
-from app.infrastructure.models import BriefingRow, PipelineCheckRow, ReportRow, StepTraceRow
+from app.domain.approvals import Approval, ApprovalRejected, ensure_approvable
+from app.infrastructure.models import ApprovalRow, BriefingRow, PipelineCheckRow, ReportRow, StepTraceRow
 from app.application.llm import ModelTrace
 
 
@@ -62,7 +64,8 @@ class SQLAlchemyReportStore:
                 return None
             checks = await self._load_checks(session, [report_id])
             briefings = await self._load_briefings(session, [report_id])
-            return self._to_report(row, checks.get(report_id, ()), briefings.get(report_id, ()))
+            approvals = await self._load_approvals(session, [report_id])
+            return self._to_report(row, checks.get(report_id, ()), briefings.get(report_id, ()), approvals.get(report_id))
 
     async def list(self, limit: int, offset: int) -> tuple[list[Report], int]:
         async with self.sessions() as session:
@@ -76,7 +79,8 @@ class SQLAlchemyReportStore:
             rows = result.all()
             checks = await self._load_checks(session, [row.id for row in rows])
             briefings = await self._load_briefings(session, [row.id for row in rows])
-            return [self._to_report(row, checks.get(row.id, ()), briefings.get(row.id, ())) for row in rows], total or 0
+            approvals = await self._load_approvals(session, [row.id for row in rows])
+            return [self._to_report(row, checks.get(row.id, ()), briefings.get(row.id, ()), approvals.get(row.id)) for row in rows], total or 0
 
     async def update_priority(self, report: Report) -> None:
         # Classification can update only priority, never the submitted readings,
@@ -171,6 +175,54 @@ class SQLAlchemyReportStore:
             await session.commit()
             return list(queued)
 
+    async def approve_briefing(self, report_id, briefing_id, director, acknowledge_review, approved_at) -> Approval:
+        async with self.sessions() as session:
+            # Reserve the SQLite writer before reading eligibility. Concurrent
+            # requests see the committed approval instead of upgrading stale
+            # read snapshots. Unique constraints remain a final duplicate guard.
+            await session.execute(text("BEGIN IMMEDIATE"))
+            row = await session.get(ReportRow, report_id)
+            report = None
+            if row is not None:
+                briefings = await self._load_briefings(session, [report_id])
+                approvals = await self._load_approvals(session, [report_id])
+                report = self._to_report(row, briefings=briefings.get(report_id, ()), approval=approvals.get(report_id))
+            exists = await session.scalar(select(BriefingRow.id).where(BriefingRow.id == briefing_id))
+            ensure_approvable(report, briefing_id, exists is not None, acknowledge_review)
+            approval = Approval(str(uuid4()), report_id, briefing_id, director, approved_at,
+                                acknowledge_review, tuple(report.review_reasons))
+            timestamp = approved_at.isoformat(timespec="microseconds").replace("+00:00", "Z")
+            session.add(ApprovalRow(
+                id=approval.id, report_id=report_id, briefing_id=briefing_id, approved_by=director,
+                approved_at=timestamp, review_acknowledged=acknowledge_review,
+                review_reasons_snapshot_json=json.dumps(approval.review_reasons_snapshot),
+            ))
+            session.add(StepTraceRow(
+                id=str(uuid4()), report_id=report_id, step_key="approval", display_order=300,
+                status="completed", started_at=timestamp, finished_at=timestamp, provider="human",
+                model=None, prompt_version="human-approval-v1", provider_response_id=None,
+                input_tokens=0, cached_input_tokens=0, output_tokens=0, usage_status="reported",
+                error_code=None, parallel_group=None, round_number=None,
+            ))
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                raise ApprovalRejected("already_approved", "This briefing has already been approved.") from None
+            return approval
+
+    @staticmethod
+    async def _load_approvals(session, report_ids):
+        if not report_ids:
+            return {}
+        rows = await session.scalars(select(ApprovalRow).where(ApprovalRow.report_id.in_(report_ids)))
+        return {row.report_id: Approval(
+            id=row.id, report_id=row.report_id, briefing_id=row.briefing_id,
+            approved_by=row.approved_by, approved_at=datetime.fromisoformat(row.approved_at.replace("Z", "+00:00")),
+            review_acknowledged=row.review_acknowledged,
+            review_reasons_snapshot=tuple(json.loads(row.review_reasons_snapshot_json)),
+        ) for row in rows}
+
     async def claim_pipeline(self, report_id: str) -> bool:
         async with self.sessions() as session:
             result = await session.execute(update(ReportRow).where(
@@ -236,7 +288,7 @@ class SQLAlchemyReportStore:
         return {key: tuple(value) for key, value in by_report.items()}
 
     @staticmethod
-    def _to_report(row: ReportRow, checks=(), briefings=()) -> Report:
+    def _to_report(row: ReportRow, checks=(), briefings=(), approval=None) -> Report:
         return Report(
             id=row.id,
             engineer_name=row.engineer_name,
@@ -268,4 +320,5 @@ class SQLAlchemyReportStore:
             pipeline_status=row.pipeline_status,
             error_code=row.error_code,
             briefings=briefings,
+            approval=approval,
         )

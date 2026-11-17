@@ -11,11 +11,11 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G5 | Severity and deadlines | 10 | Passed | 10/10 |
 | G6 | Structured classification and fallback | 10 | Passed | 10/10 |
 | G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
-| G8 | Draft/evaluation and human approval | 10 | Loop/recovery verified; human approval open | Not assessed |
+| G8 | Draft/evaluation and human approval | 10 | Passed | 10/10 |
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6/G7 are fully verified; G8's bounded loop and scheduling/recovery are verified after separate approvals. Branch 3 is ready for its focused PR review. G8 remains unassessed until the human-approval workflow in branch 4; G9 has not started.
+**Fully verified total: 85/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15. G9 has not started.
 
 ## G1: required evidence
 
@@ -308,3 +308,38 @@ The default total timeout is 270 seconds, validated positive and capped at 270. 
 | Repository audit | 90 required files exactly match the allowlist; whitespace and `git diff --check` pass. Local plan/PDF, scratch files, raw output, dependencies, databases, secrets and generated builds stay ignored. |
 
 Branch 3 implementation is ready for focused PR review; parent MIS-11 stays in progress until merge. **Verified rubric total remains 75/100**: G6 10/10 and G7 10/10, with G8 deliberately incomplete until human approval in branch 4. Browser visual review, live model quality and current rates remain unverified. Do not start branch 4 before this PR merges; continue G8 there before G9.
+
+## G8 / MIS-15: human-approval red checkpoint, 2026-11-16
+
+Verified PR #3 merged at `ef32061`, containing reviewed branch head `9af6a47`. Fast-forwarded main and created Linear's exact branch `abdul2shaik/mis-14-04-featuredirector-console`. The user explicitly approved these 31 expected failures with **“go”** before implementation. The following records the original red checkpoint.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Director authorization | Backend validates configured HTTP Basic credentials; absent/bad credentials and client role headers cannot approve. Response identity/time come from the server; forged body metadata is rejected. |
+| Eligibility and acknowledgment | Require a completed pipeline and selected valid draft. Reject queued/processing/failed, missing/foreign/nonselected drafts and duplicate approvals. Strict boolean acknowledgment required for injection, exhausted evaluations and evaluation errors; snapshot reasons with approval. |
+| Durable safety boundary | Human approval of a NO_GO briefing does not alter readings, verdict, violations, severity, deadline, history or clearance. Evaluator acceptance alone creates no approval. Approval and its deterministic trace survive restart. |
+| Concurrent requests | Two simultaneous valid requests produce exactly one 201, one 409, one approval row and one approval trace. |
+| Director review UI | Inspect original data, canonical verdict/violations/deadline, selected and earlier drafts, feedback and all checks. Pending human approval is separate from evaluator status. Explicit confirmation uses credentials and review acknowledgment; no credential storage; rejected requests do not mark approved. |
+| Active states and untrusted text | Poll selected processing reports, stop polling on unmount, disable unavailable approval and render model markup as text. |
+
+Offline runs observed **22 expected backend failures / 224 existing passes** and **9 expected frontend failures / 14 existing passes**. All 238 earlier tests remain green. Backend failures are the absent approval endpoint (404/default error shape); frontend failures are the absent Review report control/Director view. There are no import/collection/setup errors.
+
+Only tests/shared approval fixture and exact ignore exceptions changed, plus this scorecard. Production code, migrations and dependency locks remain identical to merged main. Required-file audit: 93 files match the allowlist. Raw logs stay ignored at `.local/validation/g8-approval-backend-red.log` and `g8-approval-frontend-red.log`. Tests remain uncommitted/unpushed. **Wait for explicit user approval before implementing this batch.** G8 remains unassessed and total stays **75/100**; G9 untouched. README development rules remain removed.
+
+### G8: human approval implemented and complete gate verified
+
+The user approved implementation after reviewing the red checkpoint. The approval endpoint validates configured Director credentials, accepts only a selected briefing ID and strict review acknowledgment, and derives identity/time on the server. A separate application approval capability is unavailable to the pipeline. SQLite reserves the writer before checking eligibility; approval and its zero-token trace commit together with unique report/draft constraints. Approval does not update report facts, draft history or launch decisions. Migration 0008 adds approval rows without rebuilding existing tables.
+
+The Director view shows original data, canonical GO/NO_GO and violations, priority/deadline, selected and earlier drafts, evaluation feedback, advisory checks and human approval status. Selected active reports poll every two seconds and stop on unmount. The confirmation requires credentials and acknowledgment when flagged; credentials are never stored and are cleared after the request. Model text renders as text. The README documents actual usage and the local single-Director scope; development rules remain removed.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **246 backend + 23 frontend tests passed**, then TypeScript checking and production build. External networking disabled; no real API key/call. |
+| Entire loop | All 20 existing loop cases pass: separate calls, feedback propagation, acceptance in rounds 1–3, maximum three rounds, evaluator/draft failures, persistent history and pending human state. Nine lifecycle cases remain green. |
+| Approval safeguards | All 22 new backend cases pass: authentication, forged metadata, strict acknowledgment, incomplete/failed/missing/foreign/nonselected drafts, duplicates, simultaneous requests, identity/time, review snapshot, restart and unchanged NO_GO facts. |
+| Review UI | All nine new component cases pass: original/canonical data, history/feedback/checks, explicit confirmation and credentials, flagged acknowledgment, no credential storage, rejection handling, unavailable states, safe markup and polling cleanup. |
+| Real HTTP/restart smoke | Temporary SQLite and real Uvicorn process: queued → complete fake pipeline → 401 without auth → 201 approval → 409 duplicate → process restart. Full approved report retained, including NO_GO/violations/priority/deadline/history. Exactly one approval and one approval trace; migration 0008. |
+| Deployment | `make up` exited 0 with healthy API/web; proxied `/healthz` returned expected fake-mode JSON. |
+| Required-file audit | 99 required files exactly match the allowlist; `git diff --check` passes. Local plan/PDF, smoke script, raw logs, secrets, databases and generated output stay ignored. |
+
+G8 self-assessment: **10/10**, no unmet rubric clauses. Cumulative verified score: **85/100**. Browser visual review and live model quality remain unverified; component, HTTP and restart checks are the evidence obtained. G9 requires its own red-test explanation and explicit approval before implementation. Parent MIS-14 remains in progress until its focused PR is merged.

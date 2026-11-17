@@ -3,7 +3,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from app.api.schemas import ReportCreate, ReportPage, ReportRead
+from app.api.schemas import ApprovalCreate, ApprovalRead, ReportCreate, ReportPage, ReportRead
+from app.api.auth import authenticated_director
+from app.application.approvals import ApprovalService
 from app.application.reports import ReportService
 from app.infrastructure.repository import SQLAlchemyReportStore
 
@@ -16,6 +18,7 @@ async def get_reports(request: Request) -> ReportService:
 
 
 Reports = Annotated[ReportService, Depends(get_reports)]
+Director = Annotated[str, Depends(authenticated_director)]
 
 
 @router.post("", status_code=201, response_model=ReportRead)
@@ -40,3 +43,10 @@ async def list_reports(
 @router.get("/{report_id}", response_model=ReportRead)
 async def read_report(report_id: UUID, reports: Reports):
     return ReportRead.from_report(await reports.get(str(report_id)))
+
+
+@router.post("/{report_id}/approve", status_code=201, response_model=ApprovalRead)
+async def approve_briefing(report_id: UUID, submission: ApprovalCreate, director: Director, request: Request):
+    service = ApprovalService(SQLAlchemyReportStore(request.app.state.database.sessions))
+    approval = await service.approve(str(report_id), str(submission.briefing_id), director, submission.acknowledge_review)
+    return ApprovalRead.from_approval(approval)

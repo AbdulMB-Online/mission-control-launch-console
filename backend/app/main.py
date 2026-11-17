@@ -46,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await app.state.database.close()
 
     app = FastAPI(title="Mission Control", lifespan=lifespan)
+    app.state.settings = settings
     register_error_handlers(app)
     app.include_router(report_router)
 
