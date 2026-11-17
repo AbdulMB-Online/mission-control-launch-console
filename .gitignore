@@ -100,3 +100,40 @@ tmp/
 # Approved G5 implementation: pure priority rules and historical migration.
 !/backend/app/domain/severity.py
 !/backend/migrations/versions/0004_priority_deadlines.py
+
+# MIS-12 / G6: approved classification and gateway tests.
+!/backend/tests/test_classification.py
+!/backend/tests/test_llm_gateway.py
+!/backend/tests/test_openai_gateway.py
+
+# Approved G6 implementation: gateway contracts/adapters and classified results.
+!/backend/app/application/llm.py
+!/backend/app/application/ai_schemas.py
+!/backend/app/application/prompts.py
+!/backend/app/infrastructure/llm/__init__.py
+!/backend/app/infrastructure/llm/fake_gateway.py
+!/backend/app/infrastructure/llm/openai_gateway.py
+!/backend/migrations/versions/0005_classification.py
+
+# MIS-13 / G7: approved concurrent checks and human-review tests.
+!/backend/tests/test_parallel_checks.py
+!/backend/tests/test_prompt_injection.py
+!/frontend/src/features/reports/ReportChecks.test.tsx
+
+# Approved G7 implementation: advisory outcomes, runner, migration and display.
+!/backend/app/domain/checks.py
+!/backend/app/application/pipeline.py
+!/backend/migrations/versions/0006_advisory_checks.py
+!/frontend/src/features/reports/ReportChecks.tsx
+
+# MIS-11 / G8: approved bounded draft/evaluation tests.
+!/backend/tests/test_briefing_loop.py
+
+# Approved G8 loop: immutable drafts, bounded use case and persistence migration.
+!/backend/app/domain/briefings.py
+!/backend/app/application/briefings.py
+!/backend/migrations/versions/0007_briefings.py
+
+# MIS-11 / G8: approved automatic processing and recovery tests.
+!/backend/tests/test_pipeline_lifecycle.py
+!/backend/app/application/runner.py

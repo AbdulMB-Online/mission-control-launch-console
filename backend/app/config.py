@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.4-mini-2026-03-17"
     director_username: str = "flight-director"
     director_password: SecretStr = SecretStr("demo-director")
+    pipeline_autostart: bool = True
+    pipeline_timeout_seconds: float = Field(default=270, gt=0, le=270, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def validate_runtime(self):

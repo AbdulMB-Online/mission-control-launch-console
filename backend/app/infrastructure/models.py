@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, CheckConstraint, Index, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -20,6 +20,8 @@ class ReportRow(Base):
             "(effective_severity = 'low' AND deadline_minutes = 30)", name="report_priority_mapping",
         ),
         CheckConstraint("verdict = 'go' OR effective_severity = 'high'", name="report_no_go_priority"),
+        CheckConstraint("classification_status IN ('not_run', 'completed', 'fallback')", name="report_classification_status"),
+        CheckConstraint("pipeline_status IN ('queued', 'processing', 'completed', 'failed')", name="report_pipeline_status"),
         Index("ix_reports_created_id", "created_at", "id"),
     )
 
@@ -39,3 +41,80 @@ class ReportRow(Base):
     deadline_minutes: Mapped[int] = mapped_column(Integer)
     brief_by_at: Mapped[str] = mapped_column(String(27))
     severity_provisional: Mapped[bool] = mapped_column(Boolean)
+    subsystem: Mapped[str] = mapped_column(String(32))
+    classification_status: Mapped[str] = mapped_column(String(12))
+    classification_rationale: Mapped[str] = mapped_column(String(500))
+    requires_review: Mapped[bool] = mapped_column(Boolean)
+    review_reasons_json: Mapped[str] = mapped_column(Text)
+    pipeline_status: Mapped[str] = mapped_column(String(10))
+    error_code: Mapped[str | None] = mapped_column(String(40))
+
+
+class StepTraceRow(Base):
+    __tablename__ = "step_traces"
+    __table_args__ = (
+        UniqueConstraint("report_id", "step_key", name="uq_report_step"),
+        CheckConstraint("input_tokens IS NULL OR input_tokens >= 0", name="trace_input_tokens"),
+        CheckConstraint("output_tokens IS NULL OR output_tokens >= 0", name="trace_output_tokens"),
+        CheckConstraint("cached_input_tokens IS NULL OR (cached_input_tokens >= 0 AND cached_input_tokens <= input_tokens)", name="trace_cached_tokens"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    step_key: Mapped[str] = mapped_column(String(40))
+    display_order: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(12))
+    started_at: Mapped[str] = mapped_column(String(27))
+    finished_at: Mapped[str] = mapped_column(String(27))
+    provider: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str | None] = mapped_column(String(128))
+    prompt_version: Mapped[str] = mapped_column(String(40))
+    provider_response_id: Mapped[str | None] = mapped_column(String(128))
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    cached_input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    usage_status: Mapped[str] = mapped_column(String(20))
+    error_code: Mapped[str | None] = mapped_column(String(40))
+    parallel_group: Mapped[str | None] = mapped_column(String(36))
+    round_number: Mapped[int | None] = mapped_column(Integer)
+
+
+class PipelineCheckRow(Base):
+    __tablename__ = "pipeline_checks"
+    __table_args__ = (
+        UniqueConstraint("report_id", "kind", name="uq_report_check_kind"),
+        CheckConstraint("kind IN ('injection', 'missing_information', 'tone')", name="check_kind_value"),
+        CheckConstraint("status IN ('completed', 'error')", name="check_status_value"),
+        CheckConstraint("(status = 'error' AND flagged IS NULL) OR (status = 'completed' AND flagged IS NOT NULL)", name="check_flag_known"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(24))
+    status: Mapped[str] = mapped_column(String(12))
+    flagged: Mapped[bool | None] = mapped_column(Boolean)
+    details_json: Mapped[str] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(String(40))
+
+
+class BriefingRow(Base):
+    __tablename__ = "briefings"
+    __table_args__ = (
+        UniqueConstraint("report_id", "round_number", name="uq_report_briefing_round"),
+        CheckConstraint("round_number BETWEEN 1 AND 3", name="briefing_round_bound"),
+        CheckConstraint("length(summary) BETWEEN 1 AND 1200", name="briefing_summary_length"),
+        CheckConstraint("evaluation_status IN ('pending', 'accepted', 'needs_revision', 'error')", name="briefing_evaluation_status"),
+        CheckConstraint("is_selected = 0 OR evaluation_status != 'pending'", name="briefing_selectable"),
+        Index("ix_briefings_selected", "report_id", unique=True, sqlite_where=text("is_selected = 1")),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), index=True)
+    round_number: Mapped[int] = mapped_column(Integer)
+    summary: Mapped[str] = mapped_column(Text)
+    actions_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(String(27))
+    evaluation_status: Mapped[str] = mapped_column(String(14))
+    feedback_json: Mapped[str] = mapped_column(Text)
+    evaluated_at: Mapped[str | None] = mapped_column(String(27))
+    is_selected: Mapped[bool] = mapped_column(Boolean)

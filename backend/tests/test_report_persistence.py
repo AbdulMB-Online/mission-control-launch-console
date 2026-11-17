@@ -39,6 +39,7 @@ def running_api(settings, log_path):
         "LLM_PROVIDER": "fake",
         "OPENAI_API_KEY": "",
         "PYTHONUNBUFFERED": "1",
+        "PIPELINE_AUTOSTART": "false",
     }
     with log_path.open("a") as log:
         process = subprocess.Popen(

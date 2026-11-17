@@ -3,7 +3,14 @@ from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.application.ports import ReportStore
+from pydantic import ValidationError
+
+from app.application.ai_schemas import Classification
+from app.application.llm import LLMRequest, ModelTrace, guarded_generate, model_error, token_usage
+from app.application.ports import LLMGateway, ReportStore
+from app.application.prompts import CLASSIFICATION_PROMPT_VERSION, CLASSIFICATION_SYSTEM, report_data
+from app.application.pipeline import analyze_checks
+from app.application.briefings import briefing_loop
 from app.domain.launch_rules import assess_launch
 from app.domain.reports import Report, ReportInput
 from app.domain.severity import calculate_priority
@@ -49,3 +56,53 @@ class ReportService:
         resolved = replace(report, **asdict(priority))
         await self.store.update_priority(resolved)
         return resolved
+
+    async def classify(self, report_id: str, gateway: LLMGateway) -> Report:
+        report = await self.get(report_id)
+        if report.classification_status != "not_run":
+            return report
+        request = LLMRequest(
+            stage="classification", round_number=None, system_prompt=CLASSIFICATION_SYSTEM,
+            data={"report": report_data(report)},
+            schema=Classification.model_json_schema(), max_output_tokens=300,
+            prompt_version=CLASSIFICATION_PROMPT_VERSION,
+        )
+        started_at = self.clock()
+        response = await guarded_generate(gateway, request)
+
+        classified = None
+        code = model_error(response)
+        if code is None:
+            try:
+                classified = Classification.model_validate(response.payload)
+            except ValidationError:
+                code = "invalid_output"
+
+        priority = calculate_priority(report.created_at, classified.severity if classified else "high", bool(report.violations))
+        reasons = tuple(dict.fromkeys((*report.review_reasons, *((f"classification_{code}",) if code else ()))))
+        resolved = replace(
+            report, **asdict(priority), subsystem=classified.subsystem if classified else "unknown",
+            classification_status="completed" if classified else "fallback",
+            classification_rationale=classified.rationale if classified else "Classification unavailable; human review required.",
+            requires_review=report.requires_review or bool(code), review_reasons=reasons,
+        )
+        usage = token_usage(response.input_tokens, response.cached_input_tokens, response.output_tokens)
+        trace = ModelTrace(
+            id=str(uuid4()), report_id=report.id, step_key="classification", display_order=30,
+            status="error" if code else "completed", started_at=started_at, finished_at=self.clock(),
+            provider=response.provider, model=response.model, prompt_version=request.prompt_version,
+            provider_response_id=response.response_id, error_code=code, **usage,
+        )
+        await self.store.update_classification(resolved, trace)
+        return resolved
+
+    async def run_checks(self, report_id: str, gateway: LLMGateway) -> Report:
+        report = await self.get(report_id)
+        if report.checks:
+            return report
+        resolved, traces = await analyze_checks(report, gateway, self.clock)
+        await self.store.update_checks(resolved, traces)
+        return resolved
+
+    async def generate_briefing(self, report_id: str, gateway: LLMGateway) -> Report:
+        return await briefing_loop(await self.get(report_id), gateway, self.store, self.clock)

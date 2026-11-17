@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from app.domain.launch_rules import Verdict, Violation
 from app.domain.severity import Severity
+from app.domain.checks import CheckOutcome
+from app.domain.briefings import Briefing
 
 
 @dataclass(frozen=True)
@@ -28,3 +31,22 @@ class Report(ReportInput):
     deadline_minutes: int
     brief_by_at: datetime
     severity_provisional: bool
+    subsystem: str = "unknown"
+    classification_status: Literal["not_run", "completed", "fallback"] = "not_run"
+    classification_rationale: str = ""
+    requires_review: bool = False
+    review_reasons: tuple[str, ...] = ()
+    checks: tuple[CheckOutcome, ...] = ()
+    pipeline_status: Literal["queued", "processing", "completed", "failed"] = "queued"
+    error_code: str | None = None
+    briefings: tuple[Briefing, ...] = ()
+
+    @property
+    def selected_briefing_id(self) -> str | None:
+        return next((item.id for item in self.briefings if item.is_selected), None)
+
+    @property
+    def approval_state(self) -> Literal["unavailable", "pending"]:
+        # Evaluation can select a draft, but only a later human approval record
+        # can establish approval. There is no model-writable approved flag.
+        return "pending" if self.pipeline_status == "completed" and self.selected_briefing_id else "unavailable"

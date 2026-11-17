@@ -9,13 +9,13 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G3 | Filing, validation and persistence | 10 | Passed | 10/10 |
 | G4 | Python launch limits | 15 | Passed | 15/15 |
 | G5 | Severity and deadlines | 10 | Passed | 10/10 |
-| G6 | Structured classification and fallback | 10 | Not started | Not assessed |
-| G7 | Concurrent checks and injection protection | 10 | Not started | Not assessed |
-| G8 | Draft/evaluation and human approval | 10 | Not started | Not assessed |
+| G6 | Structured classification and fallback | 10 | Passed | 10/10 |
+| G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
+| G8 | Draft/evaluation and human approval | 10 | Loop/recovery verified; human approval open | Not assessed |
 | G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 55/100.** MIS-5 is complete: merged PR #1 verified at main commit `252b0a1` on 2026-11-12. Current branch: `abdul2shaik/mis-8-02-featurereport-processing`. G3, G4 and G5 are verified after separate explicit user approvals. Branch 2 implementation is ready for its focused PR review; parent MIS-8 stays in progress until merge. No branch-3 implementation has started.
+**Fully verified total: 75/100.** MIS-5/PR #1 merged at `252b0a1`; MIS-8/PR #2 merge verified at `a6d8863`. Both parents are Done. Current branch: `abdul2shaik/mis-11-03-featureai-pipeline`, created from updated main after PR #2 merged. G6/G7 are fully verified; G8's bounded loop and scheduling/recovery are verified after separate approvals. Branch 3 is ready for its focused PR review. G8 remains unassessed until the human-approval workflow in branch 4; G9 has not started.
 
 ## G1: required evidence
 
@@ -168,3 +168,143 @@ Migration `0004` adds durable priority columns and checks the severity/deadline 
 | Repository audit | 67 required files exactly match the allowlist; source whitespace and `git diff --check` pass. Local plan, PDF, raw evidence, dependencies, generated builds, databases and secrets remain ignored. |
 
 G5 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **55/100**. G3/G4 remain fully verified. Browser visual review remains unverified; component tests and HTTP deployment checks are the evidence obtained. Branch 2 is ready for review. Keep MIS-8 in progress until its PR merges; then start the AI branch from updated main and repeat the explicit test-review approval workflow. G6–G10 have no advance credit.
+
+## G6 / MIS-12: red checkpoint, 2026-11-15
+
+Verified PR #2 merged at `a6d8863`, containing the complete `1ab5c42` branch head. Fast-forwarded local main, then created Linear's exact branch `abdul2shaik/mis-11-03-featureai-pipeline`. The user explicitly approved this G6 batch with **“yes”** after the red-test review. The following records the checkpoint before implementation.
+
+| Test group | Intended behavior |
+| --- | --- |
+| Structured classification: 34 cases | Accept all seven subsystem values and three severities; preserve Python safety facts; keep every violation high; reject invalid enums/types, missing fields, blank/overlong rationale and extra authority fields. |
+| Conservative failures | Refusal, incomplete response, malformed output, timeout and provider failure produce unknown/high fallback and a visible review reason. Preserve available usage; sanitize errors; propagate cancellation. |
+| Prompt boundary and persistence | Keep report text outside system instructions, use a strict three-field schema and a 300-token cap, persist classification/priority/review metadata and token usage across restart. |
+| Gateway/fake: 9 cases | One injected async interface; key-free default fake; stage/round scripts independent of call order; payload, refusal, malformed output, usage, transport-failure and event-gate simulation. Scripted draft responses exercise the generic fake contract only; no drafting loop is implemented. |
+| OpenAI adapter: 14 cases | Mock HTTP transport; strict Responses schema, bounded timeout/output, no tools, no stored provider response, untrusted user data separated from instructions. Refusal/incomplete/malformed output retain usage; HTTP 401/429/503 and timeouts have no hidden retry or fake success; cancellation propagates; invalid/missing usage remains unknown. |
+
+`make test` observed **57 expected failures / 115 existing backend passes** with external networking disabled. Classification cases fail because the classification operation is absent; gateway cases fail because the contract/lifespan adapter is absent. No collection, missing dependency/import or process-startup failure is counted. The command stops before frontend/build; their most recent passing G5 run had 11 frontend tests plus TypeScript checking and production build.
+
+The strict request and refusal/incomplete cases follow the [official structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs) and [Responses API contract](https://developers.openai.com/api/reference/resources/responses/methods/create). OpenAI adapter tests intercept HTTP in memory and use only an explicit dummy key. No live call or model quality claim is made.
+
+Only three test files and their exact ignore exceptions changed, plus this scorecard. Production source, migrations and dependency locks remain identical to merged main. Required-file audit: 70 files match the allowlist. Raw log stays ignored at `.local/validation/g6-red.log`; local plan, PDF, secrets, dependencies and generated output remain ignored. Tests remain uncommitted and unpushed. G6 is unassessed and total remains **55/100**. Explain this test batch and **wait for explicit user approval before implementation**. No G7/G8 work yet.
+
+### G6: approved implementation and green assessment
+
+Implemented one injected async `LLMGateway` contract, immutable request/result metadata, a stage/round-scripted fake, and the sole OpenAI-client adapter. The application revalidates strict classification output and falls back to unknown/high with explicit review reasons. It recalculates effective priority in Python, preserves original safety facts and commits classification, review metadata and usage trace together. Database sessions are closed before awaiting model output.
+
+The current official SDK uses HTTPX2, so the adapter test harness was adjusted to intercept HTTPX2 instead of HTTPX; all behavioral assertions were retained. Locked SDK 3.51.0 and its dependencies without upgrading existing locked packages. Live gateway creation is explicit; the fake never constructs a real client. Both gateways close through the application lifespan. There are no tools or model-accessible approval operations.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **172 backend + 11 frontend tests passed**, followed by TypeScript checking and production build. External networking disabled, no real key or provider call. |
+| Classification | All 34 cases pass: seven subsystems, all severities, every violation override, invalid/extra-authority payloads, failures/refusals/incomplete replies, prompt isolation, cancellation and persisted result/usage after restart. |
+| Fake and interface | All nine gateway cases pass, including per-stage/per-round scripts and event gates independent of call order. |
+| Provider contract | All 14 OpenAI adapter cases pass through mocked HTTP: strict Responses schema, bounded output/timeouts, no tools, no hidden retries, explicit errors, retained usage and cancellation. |
+| Previous gates | All 115 previous backend and 11 frontend tests stay green, including real API process restart and upgrades of historical databases. |
+| Deployment | `make up` exited 0; API/web healthy. Proxied health and report collection return HTTP 200 with expected JSON after migration 0005. |
+| Repository audit | 77 required files exactly match the allowlist. `git diff --check` passes; scratch compiler files, local references, raw logs, secrets and generated outputs remain ignored. |
+
+G6 self-assessment: **10/10**, no unmet clauses for classification/gateway/fallback. Cumulative verified score: **65/100**. Real provider access, model quality and current prices remain unverified. Classification is an internal operation; automatic scheduling, three concurrent checks and drafting/evaluation are later work on this branch. G7/G8 have no advance credit. Parent MIS-11 remains in progress.
+
+## G7 / MIS-13: red checkpoint, 2026-11-15
+
+Same branch: `abdul2shaik/mis-11-03-featureai-pipeline`. Passing G6 committed locally at `aa1eeac`. The user explicitly approved this G7 batch with **“yes”** after the red-test explanation. The following records the checkpoint before implementation.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Event barrier | All three gateway calls must start before any is released; no timing-based performance assertion. All three traces share a parallel-group ID. |
+| Partial/complete failures | A timeout, refusal, incomplete output or invalid schema leaves that check unknown/error and retains successful siblings and available usage. All failed checks require review. |
+| Detection and authority | Detect missing information and calm/urgent/panic tone without rewriting severity or deadlines. Preserve earlier review reasons. Flagged and missed injection detection cannot select either GO or NO_GO, alter violations or create approval. |
+| Prompt/schema boundary | Report text remains untrusted user data; each check uses a strict schema and a 500-token cap. Extra verdict/approval fields are rejected. |
+| Cancellation and persistence | Cancel every outstanding call when the group is cancelled. Persist results, usage, review reasons and parallel grouping across restart without sharing sessions between model calls. |
+| Interim display | Prominent human-review alert plus all three check groups. Unavailable is distinct from clear; completed siblings remain visible. Model HTML is rendered as text. |
+
+Observed offline: **23 backend failures / 172 passes**, **3 frontend failures / 11 passes**. Every existing G1–G6 test passes. Backend failures are the absent `run_checks` operation; frontend failures are the absent check groups/review alert. No import/collection/setup errors are counted. Production source and dependencies remain identical to the passing G6 commit.
+
+Only three tests, exact ignore exceptions and this evidence changed. Required-file audit: 80 files match the allowlist. Failing tests are uncommitted and unpushed. Raw logs stay ignored in `.local/validation/g7-backend-red.log` and `g7-frontend-red.log`. G7 has no advance credit; verified total remains **65/100**. Explain the test batch and **wait for explicit user approval before implementing G7**. G8 remains untouched.
+
+### G7: approved implementation and green assessment, 2026-11-16
+
+Implemented guarded concurrent checks with `asyncio.gather`, strict schemas and independent error outcomes. Every task receives its own report-data object and no database session. Group cancellation cancels and joins all outstanding tasks. The caller persists three separate outcome rows, usage traces and their shared group after collection, together with the union of review reasons. Check storage cannot write launch readings, verdicts, severity/deadlines or approvals. Read/list load saved outcomes explicitly without ORM lazy-loading during model calls.
+
+The report UI shows all three advisory results and a prominent human-review warning. Unavailable checks are distinct from clear results. Submitted notes and model explanations use React text rendering. The fake gateway supports all three checks as labeled simulations; the live adapter still has no approval or decision-mutating tools.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **195 backend + 14 frontend tests passed**, followed by TypeScript checking and production build. Offline with no real key or live provider call. |
+| Concurrency and isolation | Event-barrier test proves all three calls start before any finishes; successful siblings survive timeouts/refusals/incomplete/invalid replies. Cancellation, shared grouping and original review reasons are covered. |
+| Safety and display | Safe/unsafe readings with flagged or missed injection retain Python verdicts/violations. Panic does not rewrite priority. Unknown checks require review; model HTML stays text. All 26 new G7 tests pass. |
+| Persistence | Check outcomes, usage, review reasons and group ID survive application restart. Historical migrations and all earlier tests remain green. |
+| Default fake smoke | Isolated temporary SQLite container passed filing → classification → concurrent checks → saved read: NO_GO retained, injection flagged, human review required, three persisted checks. No application-volume data created. |
+| Deployment | `make up` succeeded with API/web healthy; resumed proxied health/report reads return HTTP 200 and expected JSON after migration 0006. |
+| Repository audit | 84 required files exactly match the allowlist; source whitespace and `git diff --check` pass. Local references, scratch files, logs, secrets and generated output stay ignored. |
+
+G7 self-assessment: **10/10**, no unmet clauses. Cumulative verified score: **75/100**. Browser visual review and real model quality remain unverified; the evidence is component tests, mocked transport, fake smoke and HTTP deployment checks. Scheduling/recovery and drafting/evaluation are remaining branch-3 work; human approval completes G8 in branch 4. Parent MIS-11 stays in progress.
+
+## G8 / MIS-11: bounded-loop red checkpoint, 2026-11-16
+
+Same branch: `abdul2shaik/mis-11-03-featureai-pipeline`. Passing G7 committed locally at `45fdcf2`. The user approved this G8 batch with **“go ahead”** after the expected-red review. The following records the checkpoint before implementation. This batch covers the internal briefing loop and persistence; scheduling/recovery has a separate test review before branch-3 completion.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Accepted in rounds 1, 2 or 3 | Separate draft/evaluation requests, exact alternating order, stop immediately on acceptance, select one valid draft and keep approval pending for a human. |
+| Feedback and context | Pass the full evaluator feedback and preceding draft into the next round; provide original report, canonical Python decision and all check results. Caps: draft 700, evaluation 400. Strict schemas contain no approval/decision authority. |
+| Three rejections | Stop after round 3 (ten total calls including classification/checks), retain the latest valid draft and mark exhausted evaluation for human review. Never round 4. |
+| Evaluator failure | Invalid/refused/incomplete/timed-out evaluation retains the current valid draft, flags review and stops; it does not approve or silently accept the draft. |
+| Draft failure | Invalid/refused/provider-failed draft leaves approval unavailable. A second-round failure retains history without selecting an earlier draft. Preserve safety facts and usage. |
+| Durable human boundary | Save each valid draft before evaluation; persist rounds, evaluations, usage traces and selected/pending state across restart. Deceptive text or feedback cannot change verdicts or become human approval. |
+
+Offline run observed **20 expected new failures / 195 existing backend passes**. Every new failure is the missing `generate_briefing` operation; classification and checks execute successfully first. No import/collection/setup failures. The command stops before frontend/build; the latest G7 run passed all 14 frontend tests, TypeScript checking and production build.
+
+Only the new test file and its exact ignore exception changed after G7, plus this evidence. Production source, migrations and dependencies remain identical to `45fdcf2`. Required-file audit: 85 files match the allowlist. Failing tests remain uncommitted/unpushed; raw output stays ignored in `.local/validation/g8-loop-red.log`. G8 earns no advance credit; total remains **75/100**. Explain these tests and **wait for explicit user approval before implementing this batch**. No G9 work.
+
+### G8 bounded loop: approved implementation verified
+
+Implemented immutable draft records, strict draft/evaluation schemas and the three-round loop. Each valid draft commits before a separate evaluation call; revisions receive the complete feedback and preceding draft. Evaluation error selects the latest valid draft for human review; draft failure selects nothing, including after an earlier successful round. Terminal selection and report state commit together. A partial unique index permits at most one selected draft; approval remains a derived pending state, with no model-writable approval flag.
+
+Migration 0007 adds report status/error and round metadata plus briefing history. It adds report columns directly instead of rebuilding the parent table, preserving existing checks/traces and their cascade relationships. Storage updates cannot alter readings, verdicts, violations, priority or timestamps. No database transaction spans a model call.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **215 backend + 14 frontend tests passed**, followed by TypeScript checking and production build. Offline; no real provider call. |
+| Loop cases | All 20 new cases pass: acceptance in rounds 1/2/3, feedback/context propagation, max three rounds, evaluation failures, draft failures, no selection of earlier history after later failure, deceptive text and persisted history/usage. |
+| Human boundary | Accepted evaluation, exhausted revisions and evaluator errors leave selected drafts pending human approval. Draft errors leave approval unavailable. G8 remains unassessed until branch-4 human approval is complete. |
+| Default fake smoke | Isolated temporary SQLite container completed filing → classification → checks → draft/evaluation in six fake calls. NO_GO remained intact, one accepted draft was selected, human review remained required and approval pending. |
+| Deployment | `make up` succeeded with healthy API/web; proxied health/report reads passed after migration 0007. |
+| Repository audit | 88 required files match the allowlist; whitespace and `git diff --check` pass. Local references, logs, scratch files, secrets and generated output remain ignored. |
+
+This approved sub-batch is complete; **verified rubric total remains 75/100**. Scheduling/restart recovery is the next test-review checkpoint on the same branch. Parent MIS-11 stays in progress; no G9 work begins.
+
+## G8 / MIS-11: scheduling/recovery red checkpoint, 2026-11-16
+
+Same branch: `abdul2shaik/mis-11-03-featureai-pipeline`. Passing bounded loop committed locally at `57c6b6a`. The user confirmed this work belongs to branch 3 and approved it with **“ok go ahead”**, then resumed after interruption. The following records the checkpoint before implementation.
+
+| New tests | Intended behavior |
+| --- | --- |
+| Responsive filing and serialization | Filing returns 201 with queued state while classification is gated; health/read/filing remain available. Process one report at a time, with that report's three checks still concurrent. |
+| Duplicate scheduling | Repeated scheduling cannot claim an already-processing/completed report or repeat its model calls. |
+| Commit-before-scheduling recovery | Startup finds and processes reports saved as queued even when the previous process never scheduled their task. |
+| Interrupted work | Startup marks processing reports failed/interrupted, retains checks/draft history and closes running traces with unknown usage. Do not repeat potentially billable calls. |
+| Terminal records and shutdown | Completed/failed reports never rerun on restart. Shutdown cancels and joins active work before closing gateway/database; preserve report facts and unavailable approval. |
+| Timeout and worker resilience | Enforce a total pipeline timeout without resetting the submission deadline. Unknown scheduled IDs do not break later jobs. |
+
+Observed offline: **7 expected failures / 217 passes**. All previous 215 backend tests pass, plus two new terminal-record restart cases. Failures are absent runner wiring, classification never starting automatically and processing records not being recovered. There are no import/collection/setup errors. The command stops before frontend/build; the most recent bounded-loop run passed 14 frontend tests, TypeScript checking and production build.
+
+The shared settings fixture now requests `pipeline_autostart=False`, and the filing-only subprocess test sets the matching environment flag, so earlier tests can continue to inspect pre-processing states explicitly. Dedicated lifecycle tests request autostart. The setting is not implemented yet (currently ignored); these test preparations do not alter application behavior.
+
+Only tests/shared test setup, their exact ignore exception and this evidence changed after the passing loop commit. The README development-rules section was removed in response to the user's question; operational workflow remains documented in Linear and this scorecard. No scheduling application code, migration or dependency change. Required-file audit: 89 files match the allowlist; new tests remain uncommitted/unpushed. Raw output stays ignored at `.local/validation/g8-lifecycle-red.log`. **Wait for explicit user approval before implementing this batch.** Verified total stays **75/100**; G8 remains unassessed and G9 untouched.
+
+### G8 scheduling/recovery: approved implementation verified
+
+Implemented a tracked async queue worker in the application layer. The API schedules only after the report commit and returns the immutable queued snapshot immediately. Storage atomically claims only queued reports; unknown, processing and terminal IDs do not repeat calls. One report runs at a time while its three checks remain concurrent. Startup reschedules queued work and marks interrupted processing failed, preserving committed history. Cancellation/timeout closes running traces as unavailable rather than inventing usage. Shutdown joins the worker before gateway/database cleanup.
+
+The default total timeout is 270 seconds, validated positive and capped at 270. Autostart defaults on; focused filing/unit tests explicitly disable it, while lifecycle tests exercise the actual automatic path. No new dependency or migration was needed. The README development-rules section remains removed as requested.
+
+| Verification | Observed evidence |
+| --- | --- |
+| `make test` | Exit 0: **224 backend + 14 frontend tests passed**, then TypeScript checking and production build. Offline, with fake responses or mocked HTTP and no real provider call. |
+| Lifecycle | All nine cases pass: responsive filing/reads, serialized reports, duplicate claims, commit-before-schedule recovery, interrupted history/trace preservation, terminal-record non-reexecution, shutdown cancellation, total timeout and worker resilience. |
+| Real HTTP/restart smoke | Isolated Uvicorn process and temporary SQLite: queued HTTP 201 → full fake pipeline completed; NO_GO, three checks, selected/evaluated briefing, pending approval and timestamps survived process restart. Six model traces remained unchanged after restart. |
+| Deployment | `make up` succeeded; API/web healthy and proxied `/healthz` returned expected fake-mode JSON. |
+| Repository audit | 90 required files exactly match the allowlist; whitespace and `git diff --check` pass. Local plan/PDF, scratch files, raw output, dependencies, databases, secrets and generated builds stay ignored. |
+
+Branch 3 implementation is ready for focused PR review; parent MIS-11 stays in progress until merge. **Verified rubric total remains 75/100**: G6 10/10 and G7 10/10, with G8 deliberately incomplete until human approval in branch 4. Browser visual review, live model quality and current rates remain unverified. Do not start branch 4 before this PR merges; continue G8 there before G9.
