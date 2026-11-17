@@ -10,7 +10,7 @@ from app.domain.reports import ReportInput
 class RecordingStore:
     """Capture the report at the persistence boundary, without a DB or model."""
 
-    async def save(self, report):
+    async def save(self, report, traces=()):
         self.saved = report
 
 

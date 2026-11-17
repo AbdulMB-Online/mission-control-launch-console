@@ -12,10 +12,10 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G6 | Structured classification and fallback | 10 | Passed | 10/10 |
 | G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
 | G8 | Draft/evaluation and human approval | 10 | Passed | 10/10 |
-| G9 | Trace cards, tokens and Python costs | 10 | Not started | Not assessed |
+| G9 | Trace cards, tokens and Python costs | 10 | Passed | 10/10 |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 85/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15. G9 has not started.
+**Fully verified total: 95/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15 at `2c32bdd`; G9 is complete through MIS-16. Branch 4 stays in progress through its final acceptance review and PR merge. G10/final integration belongs to branch 5 after that merge.
 
 ## G1: required evidence
 
@@ -343,3 +343,40 @@ The Director view shows original data, canonical GO/NO_GO and violations, priori
 | Required-file audit | 99 required files exactly match the allowlist; `git diff --check` passes. Local plan/PDF, smoke script, raw logs, secrets, databases and generated output stay ignored. |
 
 G8 self-assessment: **10/10**, no unmet rubric clauses. Cumulative verified score: **85/100**. Browser visual review and live model quality remain unverified; component, HTTP and restart checks are the evidence obtained. G9 requires its own red-test explanation and explicit approval before implementation. Parent MIS-14 remains in progress until its focused PR is merged.
+
+## G9 / MIS-16: cost and trace red checkpoint, 2026-11-17
+
+Same canonical MIS-14 branch, based on passing G8 commit `2c32bdd`. The user explicitly approved the 40 expected failures with **“move on”** before implementation. The following records the original red checkpoint.
+
+| New cases | Intended behavior |
+| --- | --- |
+| 23 Python arithmetic cases | Decimal calculation subtracts cached tokens from standard input, retains tiny costs, sums before rounding, rejects invalid/missing counts and treats unknown model rates as unknown cost. Fake/Python/human operations have no provider charge. |
+| 11 trace API cases | Record filing, Python launch limits, provisional/resolved priority, all classification/check/draft/evaluation calls and human approval exactly once. Preserve timing, running-call identity and parallel grouping. Include known usage/cost for invalid/refused/incomplete responses. Unknown usage/rates produce incomplete subtotals. Persist rate snapshots and amounts across rate changes/restart; reading traces makes no model call. |
+| 6 console cases | One article per executed step, tokens and cached subset, timing, round labels and parallel grouping; display server totals without browser arithmetic, retain small amounts, clearly label unknown/incomplete and simulated values, and keep briefing access when traces cannot load. |
+
+The [official GPT-5.4 mini model page](https://developers.openai.com/api/docs/models/gpt-5.4-mini), checked 2026-11-17, lists standard text rates per million tokens of $0.75 input, $0.075 cached input and $4.50 output. These proposed versioned rates give exactly **$0.001065** for 1000 total input, 200 cached input and 100 total output tokens. Cached tokens are a subset; output already includes reasoning usage. This console uses standard Responses requests, without Batch/Flex/regional pricing or tools.
+
+Observed offline: **34 expected new backend failures / 246 existing passes**, **6 expected new frontend failures / 23 existing passes**. All 269 prior tests pass. Cost tests explicitly assert the missing Python calculator at test execution rather than failing collection. API cases reach the missing `/traces` route (404/default error envelope); UI cases reach the existing Director review but cannot find the absent execution-trace region. No collection/setup/network failures count as behavior evidence.
+
+Production source, migrations and dependency locks remain identical to the passing G8 commit. Only three new test files, exact ignore exceptions and this scorecard changed. Required-file audit: 102 files match the allowlist. Failing tests remain uncommitted/unpushed; raw logs stay ignored in `.local/validation/g9-backend-red.log` and `g9-frontend-red.log`. G9 earns no advance credit; total stays **85/100**. Explain the tests and **wait for explicit user approval before implementing G9**, per the user's TDD checkpoint rule.
+
+### G9: approved implementation and complete gate verified
+
+Implemented the pure Python Decimal calculator and versioned standard-price snapshot. Cached input is subtracted from standard input; total output is counted once. Each call persists its original rate and exact decimal cost. Missing/invalid usage and unknown rates stay unknown; Python/human steps and explicit fake simulations incur zero provider charge. Totals sum saved amounts without per-call rounding or repricing on read.
+
+Filing, launch limits and provisional priority commit with the report. Classification commits its resolved Python priority trace. Model traces are committed as running before calls, then completed under the same identity. Parallel checks use separate short storage sessions and persist completed siblings independently. No transaction spans a model request. Every round and error remains visible; cancellation/recovery closes running calls with unknown usage/cost. Approval adds its zero-token trace atomically. Migration 0009 changes only the trace leaf table and preserves existing report/check/draft/approval relationships; historical uncaptured prices remain unknown.
+
+The trace API exposes ordered steps and server totals. The console displays one article per step, nested parallel groups, timestamps, model/prompt/rate metadata, input/cached/output counts and server-provided decimal amounts. Tiny costs remain visible; unknown/incomplete and simulated values are explicit. Trace loading/failure is independent of briefing approval. Active traces poll and cancel on cleanup; approval refreshes the trace. No dependency was added. Existing model-focused fakes now implement the trace lifecycle contract, and model-only persistence assertions filter out newly added Python steps.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **280 backend + 29 frontend tests passed**, followed by TypeScript checking and production build. No API key or external networking. |
+| Arithmetic | All 23 new cases pass: exact $0.001065 example, fully cached/zero/tiny/large usage, invalid/missing counts, unknown prices, deterministic/fake zero charge and summation before rounding. |
+| Trace API | All 11 new cases pass: fifteen unique steps for three rounds plus approval; original running identity/time, parallel grouping, known usage on invalid/refused/incomplete calls, incomplete totals, simulated data and persisted prices across rate changes/restart. |
+| Console | All six new component cases pass: step cards, rounds/groups/timing/tokens, server-owned totals/tiny values, failure/unknown states, running calls without invented finish time, simulation and independent retrieval errors. |
+| Real HTTP/restart | Temporary SQLite and real Uvicorn process: six scripted-metadata calls total exactly **$0.006390**, with 6000 input / 1200 cached / 600 output tokens and eleven steps after approval. Fake trace is explicitly simulated/zero. Full reports, NO_GO/violations, approval, traces and costs survive process restart unchanged. No paid call. |
+| Legacy migration | Isolated 0008 → 0009 upgrade preserves reports, checks, drafts, approvals, trace IDs and timestamps. Uncaptured historical provider rates remain unknown; no invented prices. |
+| Deployment | `make up` exited 0; API/web healthy. Proxied health and rebuilt JS/CSS assets return successfully with trace UI/style content. |
+| Repository audit | 106 required files exactly match the allowlist. `git diff --check` passes; local plan/PDF, smoke scripts/logs, credentials, databases, dependencies and build output remain ignored. |
+
+G9 self-assessment: **10/10**, no unmet rubric clauses. Cumulative verified score: **95/100**. Browser visual review and live model quality remain unverified; component/HTTP evidence is reported without a screenshot claim. No branch 5 starts until branch 4 is reviewed and merged.

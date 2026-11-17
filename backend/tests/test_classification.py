@@ -43,13 +43,21 @@ class MemoryReports:
     def __init__(self):
         self.traces = []
 
-    async def save(self, report):
+    async def save(self, report, traces=()):
         self.report = report
+
+    # These model-focused fakes collect final outcomes; SQLite tests cover
+    # running trace persistence and deterministic step accounting.
+    async def start_traces(self, traces):
+        pass
+
+    async def finish_trace(self, trace):
+        pass
 
     async def get(self, report_id):
         return self.report if self.report.id == report_id else None
 
-    async def update_classification(self, report, trace):
+    async def update_classification(self, report, trace, priority_trace=None):
         self.report = report
         self.traces.append(trace)
 

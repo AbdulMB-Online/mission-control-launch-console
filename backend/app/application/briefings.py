@@ -6,7 +6,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from app.application.ai_schemas import Draft, Evaluation
-from app.application.llm import LLMRequest, ModelTrace, guarded_generate, model_error, token_usage
+from app.application.llm import LLMRequest, guarded_generate, model_error, token_usage, running_trace
 from app.application.prompts import DRAFT_SYSTEM, EVALUATION_SYSTEM, report_data
 from app.domain.briefings import Briefing
 
@@ -52,8 +52,12 @@ async def briefing_loop(report, gateway, store, clock):
             data=data, schema=schema.model_json_schema(),
             max_output_tokens=700 if stage == "draft" else 400, prompt_version=f"{stage}-v1",
         )
-        started = clock()
+        trace = running_trace(report.id, f"{stage}_{number}",
+                              100 + (number - 1) * 20 + (10 if stage == "evaluation" else 0),
+                              clock(), gateway, request.prompt_version, round_number=number)
+        await store.start_traces([trace])
         response = await guarded_generate(gateway, request)
+        finished = clock()
         code = model_error(response)
         payload = None
         if code is None:
@@ -61,10 +65,8 @@ async def briefing_loop(report, gateway, store, clock):
                 payload = schema.model_validate(response.payload)
             except ValidationError:
                 code = "invalid_output"
-        trace = ModelTrace(
-            id=str(uuid4()), report_id=report.id, step_key=f"{stage}_{number}",
-            display_order=100 + (number - 1) * 20 + (10 if stage == "evaluation" else 0),
-            status="error" if code else "completed", started_at=started, finished_at=clock(),
+        trace = replace(trace,
+            status="error" if code else "completed", finished_at=finished,
             provider=response.provider, model=response.model, prompt_version=request.prompt_version,
             provider_response_id=response.response_id, error_code=code, round_number=number,
             **token_usage(response.input_tokens, response.cached_input_tokens, response.output_tokens),

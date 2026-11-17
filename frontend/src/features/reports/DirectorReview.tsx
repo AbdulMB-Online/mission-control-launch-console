@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchReport, type Approval, type Briefing, type Report } from '../../api/reports';
 import { ReportChecks } from './ReportChecks';
 import { ApprovalDialog } from './ApprovalDialog';
+import { ExecutionTrace } from './ExecutionTrace';
 
 const dateLabel = (value: string) => `${new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' })} UTC`;
 const evaluationLabels = { pending: 'Evaluation pending', accepted: 'Evaluator accepted', needs_revision: 'Revision requested', error: 'Evaluation unavailable' };
@@ -62,6 +63,7 @@ export function DirectorReview({ initialReport, refreshToken, onReportChanged, o
     </section>
     {report.briefings.some(item => item.id !== selected?.id) && <section className="briefing-history" aria-labelledby="history-heading"><h3 id="history-heading">Earlier drafts</h3>{report.briefings.filter(item => item.id !== selected?.id).map(item => <details key={item.id} open><summary>Draft {item.round_number}</summary><BriefingContent briefing={item} /></details>)}</section>}
     <section className="review-checks" aria-labelledby="checks-heading"><h3 id="checks-heading">Advisory findings</h3><ReportChecks report={report} /></section>
+    <ExecutionTrace reportId={report.id} refreshToken={refreshToken} pipelineStatus={report.pipeline_status} approvalId={report.approval?.id} />
     <footer className="approval-bar"><div role="status">{report.approval ? <><strong>Approved by {report.approval.approved_by}</strong><time dateTime={report.approval.approved_at}>{dateLabel(report.approval.approved_at)}</time></> : <><strong>{report.approval_state === 'pending' ? 'Pending human approval' : 'Approval unavailable'}</strong><span>Evaluator status is advisory.</span></>}</div><button className="submit-report" disabled={!canApprove} onClick={() => setShowApproval(true)}>Approve briefing</button></footer>
     {showApproval && selected && <ApprovalDialog report={report} briefingId={selected.id} onApproved={approved} onClose={() => setShowApproval(false)} />}
   </section>;

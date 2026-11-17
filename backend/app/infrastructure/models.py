@@ -65,7 +65,7 @@ class StepTraceRow(Base):
     display_order: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(12))
     started_at: Mapped[str] = mapped_column(String(27))
-    finished_at: Mapped[str] = mapped_column(String(27))
+    finished_at: Mapped[str | None] = mapped_column(String(27))
     provider: Mapped[str] = mapped_column(String(20))
     model: Mapped[str | None] = mapped_column(String(128))
     prompt_version: Mapped[str] = mapped_column(String(40))
@@ -77,6 +77,8 @@ class StepTraceRow(Base):
     error_code: Mapped[str | None] = mapped_column(String(40))
     parallel_group: Mapped[str | None] = mapped_column(String(36))
     round_number: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[str | None] = mapped_column(Text)
+    rate_snapshot_json: Mapped[str | None] = mapped_column(Text)
 
 
 class PipelineCheckRow(Base):

@@ -12,13 +12,13 @@ CREATED_AT = datetime(2026, 11, 15, 23, 58, tzinfo=UTC)
 
 
 class MemoryReports:
-    async def save(self, report):
+    async def save(self, report, traces=()):
         self.report = report
 
     async def get(self, report_id):
         return self.report if self.report.id == report_id else None
 
-    async def update_priority(self, report):
+    async def update_priority(self, report, trace=None):
         self.report = report
 
 

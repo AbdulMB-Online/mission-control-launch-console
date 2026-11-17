@@ -150,3 +150,14 @@ tmp/
 !/backend/migrations/versions/0008_approvals.py
 !/frontend/src/features/reports/DirectorReview.tsx
 !/frontend/src/features/reports/ApprovalDialog.tsx
+
+# MIS-16 / G9: cost and execution-trace tests before implementation.
+!/backend/tests/test_costs.py
+!/backend/tests/test_trace_api.py
+!/frontend/src/features/reports/ExecutionTrace.test.tsx
+
+# Approved G9: exact costs and durable in-flight execution traces.
+!/backend/app/domain/costs.py
+!/backend/migrations/versions/0009_trace_costs.py
+!/frontend/src/api/traces.ts
+!/frontend/src/features/reports/ExecutionTrace.tsx

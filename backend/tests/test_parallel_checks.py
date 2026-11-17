@@ -68,13 +68,21 @@ class MemoryReports:
     def __init__(self):
         self.traces = []
 
-    async def save(self, report):
+    async def save(self, report, traces=()):
         self.report = report
+
+    # These model-focused fakes collect final outcomes; SQLite tests cover
+    # running trace persistence and deterministic step accounting.
+    async def start_traces(self, traces):
+        pass
+
+    async def finish_trace(self, trace):
+        pass
 
     async def get(self, report_id):
         return self.report if self.report.id == report_id else None
 
-    async def update_priority(self, report):
+    async def update_priority(self, report, trace=None):
         self.report = report
 
     async def update_checks(self, report, traces):
@@ -234,7 +242,7 @@ async def test_check_results_usage_and_parallel_group_survive_restart(settings, 
             ), {"id": original.id})).all()
             assert {row.kind for row in rows} == STAGES
             traces = (await connection.execute(text(
-                "SELECT parallel_group, input_tokens, output_tokens FROM step_traces WHERE report_id = :id"
+                "SELECT parallel_group, input_tokens, output_tokens FROM step_traces WHERE report_id = :id AND provider = 'fake'"
             ), {"id": original.id})).all()
             assert len(traces) == 3 and len({row.parallel_group for row in traces}) == 1
             assert all(row.parallel_group and row.input_tokens == 100 and row.output_tokens == 20 for row in traces)

@@ -171,3 +171,42 @@ class ReportPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class TraceRead(BaseModel):
+    id: str
+    report_id: str
+    step_key: str
+    display_order: int
+    status: Literal["running", "completed", "error"]
+    started_at: str
+    finished_at: str | None
+    provider: str
+    model: str | None
+    prompt_version: str
+    provider_response_id: str | None
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    output_tokens: int | None
+    usage_status: Literal["reported", "unavailable"]
+    error_code: str | None
+    parallel_group: str | None
+    round_number: int | None
+    cost_usd: str | None
+    rate_snapshot: dict[str, str] | None
+
+
+class TraceTotals(BaseModel):
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+    usage_complete: bool
+    known_cost_usd: str
+    cost_complete: bool
+    simulated: bool
+
+
+class TracePage(BaseModel):
+    report_id: str
+    steps: list[TraceRead]
+    totals: TraceTotals

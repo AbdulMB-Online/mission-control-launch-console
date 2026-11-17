@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from app.api.schemas import ApprovalCreate, ApprovalRead, ReportCreate, ReportPage, ReportRead
+from app.api.schemas import ApprovalCreate, ApprovalRead, ReportCreate, ReportPage, ReportRead, TracePage
 from app.api.auth import authenticated_director
 from app.application.approvals import ApprovalService
 from app.application.reports import ReportService
@@ -50,3 +50,8 @@ async def approve_briefing(report_id: UUID, submission: ApprovalCreate, director
     service = ApprovalService(SQLAlchemyReportStore(request.app.state.database.sessions))
     approval = await service.approve(str(report_id), str(submission.briefing_id), director, submission.acknowledge_review)
     return ApprovalRead.from_approval(approval)
+
+
+@router.get("/{report_id}/traces", response_model=TracePage)
+async def read_traces(report_id: UUID, reports: Reports):
+    return await reports.traces(str(report_id))

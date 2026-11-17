@@ -17,13 +17,61 @@ from app.domain.briefings import Briefing
 from app.domain.approvals import Approval, ApprovalRejected, ensure_approvable
 from app.infrastructure.models import ApprovalRow, BriefingRow, PipelineCheckRow, ReportRow, StepTraceRow
 from app.application.llm import ModelTrace
+from app.domain import costs
 
 
 class SQLAlchemyReportStore:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]):
         self.sessions = sessions
 
-    async def save(self, report: Report) -> None:
+    async def start_traces(self, traces):
+        async with self.sessions() as session:
+            for trace in traces:
+                await self._write_trace(session, trace)
+            await session.commit()
+
+    async def finish_trace(self, trace):
+        async with self.sessions() as session:
+            await self._write_trace(session, trace)
+            await session.commit()
+
+    @staticmethod
+    async def _write_trace(session, trace):
+        row = await session.get(StepTraceRow, trace.id)
+        if row is not None and row.status != "running":
+            return  # A second persistence pass cannot reprice or double-count.
+        values = asdict(trace)
+        for field in ("started_at", "finished_at"):
+            value = values[field]
+            values[field] = value.isoformat(timespec="microseconds").replace("+00:00", "Z") if value else None
+        rate = None
+        if row is not None and row.rate_snapshot_json:
+            saved = json.loads(row.rate_snapshot_json)
+            rate = costs.RateSnapshot(**{**saved, **{key: Decimal(saved[key]) for key in (
+                "input_per_million", "cached_input_per_million", "output_per_million")}})
+        if rate is None or rate.model != trace.model:
+            rate = costs.get_rate(trace.provider, trace.model)
+        amount = None if trace.status == "running" else costs.calculate_cost(
+            trace.provider, trace.model, trace.input_tokens, trace.cached_input_tokens, trace.output_tokens, rate)
+        values.update(cost_usd=format(amount, "f") if amount is not None else None,
+                      rate_snapshot_json=json.dumps(rate.to_dict()) if rate else None)
+        if row is None:
+            session.add(StepTraceRow(**values))
+        else:
+            for key, value in values.items():
+                setattr(row, key, value)
+
+    async def list_traces(self, report_id):
+        async with self.sessions() as session:
+            rows = await session.scalars(select(StepTraceRow).where(
+                StepTraceRow.report_id == report_id).order_by(StepTraceRow.display_order, StepTraceRow.id))
+            return [{
+                **{column.name: getattr(row, column.name) for column in StepTraceRow.__table__.columns
+                   if column.name != "rate_snapshot_json"},
+                "rate_snapshot": json.loads(row.rate_snapshot_json) if row.rate_snapshot_json else None,
+            } for row in rows]
+
+    async def save(self, report: Report, traces=()) -> None:
         row = ReportRow(
             id=report.id,
             engineer_name=report.engineer_name,
@@ -55,6 +103,9 @@ class SQLAlchemyReportStore:
         )
         async with self.sessions() as session:
             session.add(row)
+            await session.flush()
+            for trace in traces:
+                await self._write_trace(session, trace)
             await session.commit()
 
     async def get(self, report_id: str) -> Report | None:
@@ -82,7 +133,7 @@ class SQLAlchemyReportStore:
             approvals = await self._load_approvals(session, [row.id for row in rows])
             return [self._to_report(row, checks.get(row.id, ()), briefings.get(row.id, ()), approvals.get(row.id)) for row in rows], total or 0
 
-    async def update_priority(self, report: Report) -> None:
+    async def update_priority(self, report: Report, trace=None) -> None:
         # Classification can update only priority, never the submitted readings,
         # Python verdict, violations, identity or original timestamp.
         async with self.sessions() as session:
@@ -93,9 +144,11 @@ class SQLAlchemyReportStore:
                 brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
                 severity_provisional=report.severity_provisional,
             ))
+            if trace is not None:
+                await self._write_trace(session, trace)
             await session.commit()
 
-    async def update_classification(self, report: Report, trace: ModelTrace) -> None:
+    async def update_classification(self, report: Report, trace: ModelTrace, priority_trace: ModelTrace) -> None:
         # One short transaction after the model call. It cannot update launch
         # readings, verdict, violations, timestamps, identity or human approval.
         async with self.sessions() as session:
@@ -108,10 +161,8 @@ class SQLAlchemyReportStore:
                 brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
                 severity_provisional=report.severity_provisional,
             ))
-            values = asdict(trace)
-            for field in ("started_at", "finished_at"):
-                values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
-            session.add(StepTraceRow(**values))
+            await self._write_trace(session, trace)
+            await self._write_trace(session, priority_trace)
             await session.commit()
 
     async def update_checks(self, report: Report, traces: list[ModelTrace]) -> None:
@@ -127,10 +178,7 @@ class SQLAlchemyReportStore:
                     flagged=check.flagged, details_json=json.dumps(check.details), error_code=check.error_code,
                 ))
             for trace in traces:
-                values = asdict(trace)
-                for field in ("started_at", "finished_at"):
-                    values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
-                session.add(StepTraceRow(**values))
+                await self._write_trace(session, trace)
             await session.commit()
 
     async def update_briefings(self, report: Report, trace: ModelTrace | None = None) -> None:
@@ -156,10 +204,7 @@ class SQLAlchemyReportStore:
                 row.evaluated_at = item.evaluated_at.isoformat(timespec="microseconds").replace("+00:00", "Z") if item.evaluated_at else None
                 row.is_selected = item.is_selected
             if trace is not None:
-                values = asdict(trace)
-                for field in ("started_at", "finished_at"):
-                    values[field] = values[field].isoformat(timespec="microseconds").replace("+00:00", "Z")
-                session.add(StepTraceRow(**values))
+                await self._write_trace(session, trace)
             await session.commit()
 
     async def recover_pipeline(self) -> list[str]:
@@ -202,7 +247,7 @@ class SQLAlchemyReportStore:
                 status="completed", started_at=timestamp, finished_at=timestamp, provider="human",
                 model=None, prompt_version="human-approval-v1", provider_response_id=None,
                 input_tokens=0, cached_input_tokens=0, output_tokens=0, usage_status="reported",
-                error_code=None, parallel_group=None, round_number=None,
+                error_code=None, parallel_group=None, round_number=None, cost_usd="0", rate_snapshot_json=None,
             ))
             try:
                 await session.commit()
@@ -251,7 +296,7 @@ class SQLAlchemyReportStore:
             StepTraceRow.report_id == report_id, StepTraceRow.status == "running",
         ).values(status="error", error_code=code,
                  finished_at=datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z"),
-                 input_tokens=None, cached_input_tokens=None, output_tokens=None, usage_status="unavailable"))
+                 input_tokens=None, cached_input_tokens=None, output_tokens=None, usage_status="unavailable", cost_usd=None))
 
     @staticmethod
     async def _load_briefings(session, report_ids):
