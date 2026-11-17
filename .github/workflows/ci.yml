@@ -14,8 +14,8 @@ jobs:
         run: make test
       - name: Compose startup
         run: make up
-      - name: Deployment health
-        run: curl --fail --silent --show-error http://localhost:8080/healthz
+      - name: Deployment workflow smoke
+        run: make smoke
       - name: Cleanup
         if: always()
         run: make down

@@ -13,9 +13,9 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G7 | Concurrent checks and injection protection | 10 | Passed | 10/10 |
 | G8 | Draft/evaluation and human approval | 10 | Passed | 10/10 |
 | G9 | Trace cards, tokens and Python costs | 10 | Passed | 10/10 |
-| G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
+| G10 | Complete offline suite through one model interface/fake | 5 | Passed | 5/5 |
 
-**Fully verified total: 95/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15 at `2c32bdd`; G9 is complete through MIS-16 at `2e87175`. Branch 4's final acceptance checks pass and it is ready for PR review; its parent remains in progress until merge. G10/final integration belongs to branch 5 after that merge.
+**Fully verified gate total: 100/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, PR #3 at `ef32061`, and PR #4 at `55dfb71` with reviewed head `83783a2`. Current final branch: `abdul2shaik/mis-17-05-choretesting-docs`, created from updated main after PR #4 merged. G10 through MIS-18 is verified at 5/5. MIS-19 final source/documentation/clean-checkout revalidation is in progress; the final PR remains pending.
 
 ## G1: required evidence
 
@@ -409,3 +409,43 @@ Implemented the warning for queued/processing reports whose original server dead
 | Repository audit | All 106 required files exactly match the allowlist; `git diff --check` passes. PR notes, local plan/PDF, raw logs, scripts, secrets, data, dependencies and build output remain ignored. No new tracked file was needed. |
 
 Branch 4 implementation is ready for its single focused PR. MIS-15/MIS-16 are Done; parent MIS-14 remains In Progress pending review/merge. The PR title must include MIS-14 and use the parent's canonical branch. Browser visual review and live model quality remain unverified; do not claim either. Begin branch 5 only from updated main after this PR merges.
+
+## G10 / MIS-18: final integration and deployment red checkpoint
+
+Verified PR #4 merged at `55dfb71`, containing `83783a2`. Main was fast-forwarded and Linear's exact final branch `abdul2shaik/mis-17-05-choretesting-docs` created. No extra branch or ticket was added. The user explicitly approved the three expected failures with **“go on”** before implementation. The following records the original red checkpoint.
+
+| New tests | Intended behavior and observed result |
+| --- | --- |
+| Clean GO and injection NO_GO HTTP journeys (2) | Real Uvicorn process, scripted single gateway, no key/live client. Filing returns queued; classification resolves low unless Python violation forces high; deadlines anchor to submission. Three checks, feedback into round 2, pending human approval, review acknowledgment, one explicit approval/trace and exact simulated usage. Both pass against merged code. |
+| Approved report process restart (1) | Separate API stop/start preserves the entire report, checks, both draft/evaluation rounds, selected briefing, approval identity/time, trace IDs, token totals and costs without rerunning calls. Passes. |
+| Hard crash during a call (1) | Kill an API process after classification is traced as running. Restart marks work failed/interrupted, retains NO_GO/deadline and trace identities, marks usage/cost unknown and never repeats the call. Passes. |
+| Deployment smoke success (1) | A reusable CLI must call the real HTTP interface, file and process a NO_GO report, explicitly authenticate approval and verify trace/usage. Fails because `scripts/smoke.py` is absent. |
+| Invalid credentials (1) | Smoke must exit unsuccessfully, show a credential error and leave the briefing unapproved. Fails because the same CLI is absent. |
+| Live-mode refusal (1) | Smoke must refuse an OpenAI-mode deployment before filing or causing model calls. A loopback health server records zero writes. Fails because the CLI is absent. |
+
+Observed offline: **3 expected new backend failures / 284 passes**, plus **31 existing frontend passes**. All 311 earlier tests remain green, and four new integration tests already pass. There are no collection/import failures. `make -n smoke` independently reports that the target is absent. The failures identify a missing deployment tool; no application feature regression was found.
+
+Only two required test files, their exact ignore exceptions and this scorecard changed. Application source, migrations, dependency locks and deployment/test-runner configuration remain identical to merged main. All 108 required files match the allowlist. New tests remain local/uncommitted/unpushed; raw logs are ignored at `.local/validation/g10-backend-red.log` and `g10-frontend-baseline.log`.
+
+Proposed next batch: implement the tested fake-only HTTP smoke CLI, expose `make smoke`, and prepare isolated browser test tooling. Write browser journeys before exercising them; if they reveal a new behavior defect, explain that failure and obtain approval before repairing it. Run browser flows and a Compose stop/start against preserved data before grading G10. Browser evidence, final tool-choice accuracy and clean-checkout verification remain outstanding; no advance credit. **Wait for explicit user approval before implementing the smoke/deployment changes.** Verified total stays **95/100**.
+
+### G10: approved offline/browser/restart implementation verified
+
+Implemented the fake-only HTTP smoke CLI and `make smoke`, also used by CI after startup. It checks readiness/mode before filing, processes a NO_GO report, explicitly authenticates approval and verifies persisted facts and trace accounting. Bad credentials fail clearly; live-mode health is refused before any write. No application business rule, gateway or approval operation changed.
+
+Added Playwright 1.64.1 and pyee 14.0.0 to test dependencies; every existing dependency pin is unchanged. Chromium and OS dependencies are provisioned only while building the test image. `make test` runs component tests/build before Pytest so browser journeys use the production bundle. All tests execute with `network_mode: none`, an empty key and the existing socket guard. Browser contexts also block requests outside loopback. Fresh test profiles use only local fake data; no personal browser access.
+
+Browser journeys were written before execution and passed against the existing app. Desktop GO and mobile injection NO_GO journeys exercise the engineer form, queued processing, checks, feedback into a second draft, pending human state, credential/review confirmation, explicit approval, safe markup, accounting and reload persistence. A test-only filesystem gate makes the intermediate processing state deterministic; it adds no public endpoint or application backdoor.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **289 backend tests (including 2 real Chromium journeys) + 31 frontend tests**, TypeScript checking and production build. No skips, key or external networking. |
+| Smoke regression cases | All 3 originally red cases pass: successful fake report/approval, invalid credentials with no false approval, live-mode refusal before writes. |
+| HTTP/process cases | All 4 new cases pass: clean/injection full workflows, complete approved-record restart and hard-crash interruption without repeated calls. |
+| Browser review | Both journeys passed again while capturing ignored local screenshots. Inspected desktop report review and mobile confirmation layouts; content, modal controls and canonical facts are legible. Browser assertions also verify no horizontal overflow, no stored credentials and no executable model markup. |
+| Actual Compose proxy | Isolated `mission-control-acceptance` deployment on port 18085 reached healthy API/web with the real Compose configuration. `make smoke` passed through Nginx: explicit approval, NO_GO retained, eleven steps and simulated costs. |
+| Preserved-volume restart | Stopped and started both verification services without deleting their volume. Before/after full report list and trace JSON are identical, including approval identity/time, findings, draft/evaluation, token totals, costs and all trace IDs. |
+| Gateway boundary | Source scan confirms the sole SDK construction/request is in the OpenAI adapter. All classification/check/draft/evaluation paths use `guarded_generate` and the same gateway contract. Offline system factories reject any live adapter construction. |
+| Required-file audit | 110 required files exactly match the allowlist; diff whitespace passes. Scratch image inputs, snapshots/screenshots, raw outputs, test data and generated builds remain ignored. |
+
+G10 self-assessment: **5/5**, no unmet clauses. All ten gates now total **100/100** before the final MIS-19 revalidation. Live provider quality/access and paid usage remain unverified and are outside the offline acceptance evidence. Final tool-choice/README accuracy and clean-checkout verification follow; do not claim the final PR merged yet.

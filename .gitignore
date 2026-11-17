@@ -161,3 +161,9 @@ tmp/
 !/backend/migrations/versions/0009_trace_costs.py
 !/frontend/src/api/traces.ts
 !/frontend/src/features/reports/ExecutionTrace.tsx
+
+# MIS-18 / G10: full HTTP/process journeys and deployment command tests first.
+!/backend/tests/test_system_workflow.py
+!/backend/tests/test_deployment_smoke.py
+!/scripts/smoke.py
+!/backend/tests/test_browser_workflow.py

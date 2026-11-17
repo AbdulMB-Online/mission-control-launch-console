@@ -6,10 +6,13 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 WORKDIR /workspace
 COPY backend/requirements-dev.lock /tmp/requirements-dev.lock
 RUN pip install --no-cache-dir -r /tmp/requirements-dev.lock
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN python -m playwright install --with-deps --only-shell chromium \
+    && rm -rf /var/lib/apt/lists/*
 COPY frontend/package*.json /workspace/frontend/
 RUN npm --prefix frontend ci --no-audit --no-fund
 COPY backend /workspace/backend
 COPY frontend /workspace/frontend
-COPY scripts/test.sh /workspace/scripts/test.sh
+COPY scripts/test.sh scripts/smoke.py /workspace/scripts/
 ENV LLM_PROVIDER=fake DATABASE_URL=sqlite+aiosqlite:////tmp/mission-test.sqlite
 CMD ["sh", "/workspace/scripts/test.sh"]
