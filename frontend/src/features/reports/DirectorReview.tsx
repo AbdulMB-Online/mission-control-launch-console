@@ -35,6 +35,8 @@ export function DirectorReview({ initialReport, refreshToken, onReportChanged, o
   }, [reportId, refreshToken, onReportChanged]);
 
   const selected = report.briefings.find(item => item.id === report.selected_briefing_id && item.is_selected);
+  const overdue = (report.pipeline_status === 'queued' || report.pipeline_status === 'processing')
+    && Date.now() > Date.parse(report.brief_by_at);
   const canApprove = !loadError && report.pipeline_status === 'completed' && Boolean(selected) && report.approval_state === 'pending';
   function approved(approval: Approval) {
     const updated: Report = { ...report, approval_state: 'approved', approval };
@@ -54,6 +56,7 @@ export function DirectorReview({ initialReport, refreshToken, onReportChanged, o
       <div className="priority-description"><strong>{{ high: 'High priority', medium: 'Medium priority', low: 'Low priority' }[report.effective_severity]}</strong><span>{report.severity_provisional ? 'Provisional — awaiting classification' : `Subsystem: ${report.subsystem}`}</span></div>
       <div className="priority-deadline"><span>Brief by</span><time aria-label="Briefing deadline" dateTime={report.brief_by_at}>{dateLabel(report.brief_by_at)}</time></div>
     </div>
+    {overdue && <p className="deadline-overdue" role="status">Briefing overdue</p>}
     <section className="original-report" aria-labelledby="original-heading"><h3 id="original-heading">Submitted report</h3><p className="report-author">{report.engineer_name} / {report.station}<time dateTime={report.created_at}>{dateLabel(report.created_at)}</time></p>
       <dl className="saved-readings"><div><dt>Wind</dt><dd>{report.wind_knots}<span> knots</span></dd></div><div><dt>Temperature</dt><dd>{report.temp_c}<span> °C</span></dd></div><div><dt>Fuel</dt><dd>{report.fuel_pct}<span> %</span></dd></div></dl>
       <p className="saved-note">{report.note}</p>

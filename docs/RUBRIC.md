@@ -15,7 +15,7 @@ Scores are evidence-based self-assessments. Full points require every clause to 
 | G9 | Trace cards, tokens and Python costs | 10 | Passed | 10/10 |
 | G10 | Complete offline suite through one model interface/fake | 5 | Not started | Not assessed |
 
-**Fully verified total: 95/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15 at `2c32bdd`; G9 is complete through MIS-16. Branch 4 stays in progress through its final acceptance review and PR merge. G10/final integration belongs to branch 5 after that merge.
+**Fully verified total: 95/100.** PR #1 merged at `252b0a1`, PR #2 at `a6d8863`, and PR #3 verified at `ef32061`. MIS-5/MIS-8/MIS-11 are Done. Current branch: `abdul2shaik/mis-14-04-featuredirector-console`, created from updated main after PR #3 merged. G8 is complete through MIS-15 at `2c32bdd`; G9 is complete through MIS-16 at `2e87175`. Branch 4's final acceptance checks pass and it is ready for PR review; its parent remains in progress until merge. G10/final integration belongs to branch 5 after that merge.
 
 ## G1: required evidence
 
@@ -380,3 +380,32 @@ The trace API exposes ordered steps and server totals. The console displays one 
 | Repository audit | 106 required files exactly match the allowlist. `git diff --check` passes; local plan/PDF, smoke scripts/logs, credentials, databases, dependencies and build output remain ignored. |
 
 G9 self-assessment: **10/10**, no unmet rubric clauses. Cumulative verified score: **95/100**. Browser visual review and live model quality remain unverified; component/HTTP evidence is reported without a screenshot claim. No branch 5 starts until branch 4 is reviewed and merged.
+
+## MIS-14 final acceptance: overdue-display red checkpoint
+
+G9 is committed at `2e87175`. The existing branch-4 checklist also calls for an overdue state. The UI preserves and shows the server UTC deadline, but does not yet flag active work past that deadline. This is a small remaining branch acceptance item; it does not change Python deadline calculation or add rubric points.
+
+The user explicitly approved these two failures with **“ok”** before implementation. The following records the original red checkpoint.
+
+Two tests were added to the existing Director review test file before changing production code:
+
+- An already overdue processing report shows **Briefing overdue**, keeps its exact server deadline and NO_GO verdict, and leaves approval disabled with no approval request.
+- A processing report initially before its deadline becomes visibly overdue when the normal two-second polling cycle crosses it; the deadline remains anchored to submission.
+
+Offline frontend run: **2 expected failures / 29 existing passes**. Both failures are the missing overdue label; the existing app, polling, review and trace UI work normally. The previous complete run passed 280 backend + 29 frontend tests, type checking and build. Production code remains identical to `2e87175`; only the test file and this checkpoint changed. All 106 files still match the allowlist. Tests are local/uncommitted and raw output is ignored at `.local/validation/mis14-deadline-red.log`.
+
+Proposed implementation: a clearly labeled warning for queued/processing reports when current time passes the server's `brief_by_at`, refreshed through existing polling. Do not calculate/reset deadlines, rewrite verdicts, enable approval or introduce another scheduler. **Wait for explicit approval before implementing**, per the user's TDD rule. Verified rubric total remains **95/100**; MIS-14 remains in progress and its PR is not ready until this acceptance item is green.
+
+### MIS-14 final acceptance: approved overdue display verified
+
+Implemented the warning for queued/processing reports whose original server deadline is past. Existing two-second polling updates the display; no new timer, scheduler, backend state or deadline rule was added. Approval eligibility and canonical launch facts remain unchanged. Terminal reports use their completed/failed state rather than an active-processing warning.
+
+| Verification | Observed evidence |
+| --- | --- |
+| Full `make test` | Exit 0: **280 backend + 31 frontend tests passed**, followed by TypeScript checking and production build. Offline; no key or live model call. |
+| Overdue cases | Both new cases pass: already overdue active work and crossing the deadline during polling. Exact server deadline/NO_GO retained; approval remains unavailable with no automatic request. |
+| Prior gates | All prior approval, loop, concurrency, persistence, trace and cost tests remain green. G8 and G9 stay at 10/10 each; total stays **95/100**. |
+| Deployment | `make up` exited 0 with healthy API/web. Proxied health and final JS/CSS assets return successfully; warning text/style are present in deployed assets. |
+| Repository audit | All 106 required files exactly match the allowlist; `git diff --check` passes. PR notes, local plan/PDF, raw logs, scripts, secrets, data, dependencies and build output remain ignored. No new tracked file was needed. |
+
+Branch 4 implementation is ready for its single focused PR. MIS-15/MIS-16 are Done; parent MIS-14 remains In Progress pending review/merge. The PR title must include MIS-14 and use the parent's canonical branch. Browser visual review and live model quality remain unverified; do not claim either. Begin branch 5 only from updated main after this PR merges.

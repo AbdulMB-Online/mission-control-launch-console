@@ -12,7 +12,7 @@ Start the app:
 make up
 ```
 
-Open **http://localhost:8080**. Change `WEB_PORT` if 8080 is occupied. Engineers can file reports and correct errors without losing form entries. Reports process automatically. Choose **Review report** to inspect the saved launch verdict, readings, priority, UTC deadline, advisory checks, briefing, evaluation history and execution trace. Active reports refresh every two seconds while open.
+Open **http://localhost:8080**. Change `WEB_PORT` if 8080 is occupied. Engineers can file reports and correct errors without losing form entries. Reports process automatically. Choose **Review report** to inspect the saved launch verdict, readings, priority, UTC deadline, advisory checks, briefing, evaluation history and execution trace. Active reports refresh every two seconds while open and flag overdue briefings.
 
 Choose **Approve briefing** to review the confirmation and enter Director credentials. Flagged or unavailable analysis requires explicit acknowledgment. Fake mode defaults to username `flight-director` and password `demo-director`; change `DIRECTOR_USERNAME` and `DIRECTOR_PASSWORD` through configuration. Credentials stay in memory for the request. Approval records the authenticated identity, server time and review findings, and survives restart. **Approving a briefing does not authorize launch or change a NO_GO verdict.**
 

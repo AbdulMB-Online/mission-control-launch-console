@@ -156,3 +156,31 @@ it('stops selected-report polling when the workspace unmounts', async () => {
   await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
   expect(fetchMock.mock.calls).toHaveLength(before);
 });
+
+it('flags overdue active work without changing the server deadline or allowing approval', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-16T12:05:01.000Z'));
+  currentReport = { ...currentReport, pipeline_status: 'processing', approval_state: 'unavailable', selected_briefing_id: null, briefings: [] };
+  await act(async () => { render(<App />); });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Review report' })); });
+  const review = screen.getByRole('region', { name: 'Briefing review' });
+  expect(within(review).getByText('Briefing overdue')).toBeTruthy();
+  expect(within(review).getByLabelText('Briefing deadline').getAttribute('datetime')).toBe(baseReport.brief_by_at);
+  expect(within(review).getByText('NO_GO')).toBeTruthy();
+  expect(within(review).getByRole('button', { name: 'Approve briefing' }).hasAttribute('disabled')).toBe(true);
+  expect(postMock).not.toHaveBeenCalled();
+});
+
+it('marks a deadline overdue as active processing crosses it, without resetting the deadline', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-16T12:04:59.000Z'));
+  currentReport = { ...currentReport, pipeline_status: 'processing', approval_state: 'unavailable', selected_briefing_id: null, briefings: [] };
+  await act(async () => { render(<App />); });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Review report' })); });
+  expect(screen.queryByText('Briefing overdue')).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  const review = screen.getByRole('region', { name: 'Briefing review' });
+  expect(within(review).getByText('Briefing overdue')).toBeTruthy();
+  expect(within(review).getByLabelText('Briefing deadline').getAttribute('datetime')).toBe(baseReport.brief_by_at);
+  expect(postMock).not.toHaveBeenCalled();
+});
