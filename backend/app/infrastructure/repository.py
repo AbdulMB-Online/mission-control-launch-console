@@ -133,21 +133,6 @@ class SQLAlchemyReportStore:
             approvals = await self._load_approvals(session, [row.id for row in rows])
             return [self._to_report(row, checks.get(row.id, ()), briefings.get(row.id, ()), approvals.get(row.id)) for row in rows], total or 0
 
-    async def update_priority(self, report: Report, trace=None) -> None:
-        # Classification can update only priority, never the submitted readings,
-        # Python verdict, violations, identity or original timestamp.
-        async with self.sessions() as session:
-            await session.execute(update(ReportRow).where(ReportRow.id == report.id).values(
-                classified_severity=report.classified_severity,
-                effective_severity=report.effective_severity,
-                deadline_minutes=report.deadline_minutes,
-                brief_by_at=report.brief_by_at.isoformat(timespec="microseconds").replace("+00:00", "Z"),
-                severity_provisional=report.severity_provisional,
-            ))
-            if trace is not None:
-                await self._write_trace(session, trace)
-            await session.commit()
-
     async def update_classification(self, report: Report, trace: ModelTrace, priority_trace: ModelTrace) -> None:
         # One short transaction after the model call. It cannot update launch
         # readings, verdict, violations, timestamps, identity or human approval.

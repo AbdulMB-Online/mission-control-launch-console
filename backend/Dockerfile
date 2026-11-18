@@ -4,7 +4,9 @@ COPY backend/requirements.lock /tmp/requirements.lock
 RUN pip install --no-cache-dir -r /tmp/requirements.lock \
     && useradd --uid 10001 --create-home mission \
     && mkdir /data && chown mission:mission /data
-COPY --chown=mission:mission backend/ /app/
+COPY --chown=mission:mission backend/app/ /app/app/
+COPY --chown=mission:mission backend/migrations/ /app/migrations/
+COPY --chown=mission:mission backend/alembic.ini /app/alembic.ini
 USER mission
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 EXPOSE 8000

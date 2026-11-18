@@ -63,14 +63,6 @@ class ReportService:
         steps = await self.store.list_traces(report_id)
         return {"report_id": report_id, "steps": steps, "totals": summarize_traces(steps)}
 
-    async def resolve_priority(self, report_id: str, classified_severity: object) -> Report:
-        report = await self.get(report_id)
-        started = self.clock()
-        priority = calculate_priority(report.created_at, classified_severity, bool(report.violations))
-        resolved = replace(report, **asdict(priority))
-        await self.store.update_priority(resolved, python_trace(report.id, "priority_resolved", 40, started, self.clock()))
-        return resolved
-
     async def classify(self, report_id: str, gateway: LLMGateway) -> Report:
         report = await self.get(report_id)
         if report.classification_status != "not_run":

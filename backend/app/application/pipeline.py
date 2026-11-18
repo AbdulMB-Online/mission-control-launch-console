@@ -21,7 +21,7 @@ async def analyze_checks(report, gateway, clock, store):
                for index, kind in enumerate(CHECK_SCHEMAS)}
     await store.start_traces(list(pending.values()))
 
-    async def check(kind, order):
+    async def check(kind):
         request = LLMRequest(
             stage=kind, round_number=None, system_prompt=CHECK_SYSTEM[kind] + CHECK_BOUNDARY,
             data={"report": report_data(report)}, schema=CHECK_SCHEMAS[kind].model_json_schema(),
@@ -55,7 +55,7 @@ async def analyze_checks(report, gateway, clock, store):
 
     # Each storage operation opens its own session. No shared session enters
     # concurrent calls; stage failures are captured independently.
-    tasks = [asyncio.create_task(check(kind, 50 + index)) for index, kind in enumerate(CHECK_SCHEMAS)]
+    tasks = [asyncio.create_task(check(kind)) for kind in CHECK_SCHEMAS]
     try:
         results = await asyncio.gather(*tasks)
     except BaseException:

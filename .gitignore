@@ -1,8 +1,7 @@
-# Default deny: add an exact exception only for a required project file.
+# Only explicitly listed project files are eligible for Git.
 *
 !*/
 
-# Do not traverse generated dependency, build, or local evidence directories.
 node_modules/
 .venv/
 venv/
@@ -18,146 +17,113 @@ test-results/
 tmp/
 .local/
 
-# Required files currently present. Extend deliberately during implementation.
-!/.gitignore
-!/README.md
-
-# Branch 1: required runtime/build inputs, application shell, and TDD checks.
-!/Makefile
-!/compose.yaml
+# Required source, tests, configuration and documentation.
 !/.dockerignore
 !/.env.example
 !/.github/workflows/ci.yml
-!/backend/pyproject.toml
-!/backend/requirements.lock
-!/backend/requirements-dev.lock
+!/.gitignore
+!/Makefile
+!/README.md
+!/TOOL_CHOICES.md
 !/backend/Dockerfile
+!/backend/alembic.ini
 !/backend/app/__init__.py
+!/backend/app/api/__init__.py
+!/backend/app/api/auth.py
+!/backend/app/api/errors.py
+!/backend/app/api/routes.py
+!/backend/app/api/schemas.py
+!/backend/app/application/__init__.py
+!/backend/app/application/ai_schemas.py
+!/backend/app/application/approvals.py
+!/backend/app/application/briefings.py
+!/backend/app/application/llm.py
+!/backend/app/application/pipeline.py
+!/backend/app/application/ports.py
+!/backend/app/application/prompts.py
+!/backend/app/application/reports.py
+!/backend/app/application/runner.py
 !/backend/app/config.py
-!/backend/app/main.py
+!/backend/app/domain/__init__.py
+!/backend/app/domain/approvals.py
+!/backend/app/domain/briefings.py
+!/backend/app/domain/checks.py
+!/backend/app/domain/costs.py
+!/backend/app/domain/launch_rules.py
+!/backend/app/domain/reports.py
+!/backend/app/domain/severity.py
 !/backend/app/infrastructure/__init__.py
 !/backend/app/infrastructure/db.py
-!/backend/alembic.ini
-!/backend/migrations/env.py
-!/backend/migrations/versions/0001_initial.py
-!/backend/tests/conftest.py
-!/backend/tests/test_configuration.py
-!/backend/tests/test_health.py
-!/backend/tests/test_database_setup.py
-!/frontend/package.json
-!/frontend/package-lock.json
-!/frontend/tsconfig.json
-!/frontend/vite.config.ts
-!/frontend/index.html
-!/frontend/Dockerfile
-!/frontend/nginx.conf
-!/frontend/src/main.tsx
-!/frontend/src/app/App.tsx
-!/frontend/src/app/App.test.tsx
-!/frontend/src/app/styles.css
-!/frontend/public/FONT-LICENSES.txt
-!/docker/test.Dockerfile
-!/scripts/test.sh
-!/docs/RUBRIC.md
-!/TOOL_CHOICES.md
-
-# MIS-9: approved report filing/validation/restart tests.
-!/backend/tests/test_report_api.py
-!/backend/tests/test_report_persistence.py
-!/frontend/src/features/reports/ReportForm.test.tsx
-
-# Approved G3 implementation: report domain/use case, API and durable storage.
-!/backend/app/domain/__init__.py
-!/backend/app/domain/reports.py
-!/backend/app/application/__init__.py
-!/backend/app/application/ports.py
-!/backend/app/application/reports.py
-!/backend/app/infrastructure/models.py
-!/backend/app/infrastructure/repository.py
-!/backend/app/api/__init__.py
-!/backend/app/api/schemas.py
-!/backend/app/api/routes.py
-!/backend/app/api/errors.py
-!/backend/migrations/versions/0002_reports.py
-!/frontend/src/app/Icon.tsx
-!/frontend/src/api/reports.ts
-!/frontend/src/features/reports/ReportForm.tsx
-!/frontend/src/features/reports/ReportWorkspace.tsx
-
-# MIS-10 / G4: approved launch-rule behavior tests.
-!/backend/tests/test_launch_rules.py
-!/backend/tests/test_launch_rules_api.py
-
-# Approved G4 implementation: Python decisions and historical data migration.
-!/backend/app/domain/launch_rules.py
-!/backend/migrations/versions/0003_launch_decisions.py
-
-# MIS-10 / G5: approved priority/deadline tests.
-!/backend/tests/test_severity.py
-!/backend/tests/test_severity_api.py
-!/frontend/src/features/reports/ReportPriority.test.tsx
-
-# Approved G5 implementation: pure priority rules and historical migration.
-!/backend/app/domain/severity.py
-!/backend/migrations/versions/0004_priority_deadlines.py
-
-# MIS-12 / G6: approved classification and gateway tests.
-!/backend/tests/test_classification.py
-!/backend/tests/test_llm_gateway.py
-!/backend/tests/test_openai_gateway.py
-
-# Approved G6 implementation: gateway contracts/adapters and classified results.
-!/backend/app/application/llm.py
-!/backend/app/application/ai_schemas.py
-!/backend/app/application/prompts.py
 !/backend/app/infrastructure/llm/__init__.py
 !/backend/app/infrastructure/llm/fake_gateway.py
 !/backend/app/infrastructure/llm/openai_gateway.py
+!/backend/app/infrastructure/models.py
+!/backend/app/infrastructure/repository.py
+!/backend/app/main.py
+!/backend/migrations/env.py
+!/backend/migrations/versions/0001_initial.py
+!/backend/migrations/versions/0002_reports.py
+!/backend/migrations/versions/0003_launch_decisions.py
+!/backend/migrations/versions/0004_priority_deadlines.py
 !/backend/migrations/versions/0005_classification.py
-
-# MIS-13 / G7: approved concurrent checks and human-review tests.
-!/backend/tests/test_parallel_checks.py
-!/backend/tests/test_prompt_injection.py
-!/frontend/src/features/reports/ReportChecks.test.tsx
-
-# Approved G7 implementation: advisory outcomes, runner, migration and display.
-!/backend/app/domain/checks.py
-!/backend/app/application/pipeline.py
 !/backend/migrations/versions/0006_advisory_checks.py
-!/frontend/src/features/reports/ReportChecks.tsx
-
-# MIS-11 / G8: approved bounded draft/evaluation tests.
-!/backend/tests/test_briefing_loop.py
-
-# Approved G8 loop: immutable drafts, bounded use case and persistence migration.
-!/backend/app/domain/briefings.py
-!/backend/app/application/briefings.py
 !/backend/migrations/versions/0007_briefings.py
-
-# MIS-11 / G8: approved automatic processing and recovery tests.
-!/backend/tests/test_pipeline_lifecycle.py
-!/backend/app/application/runner.py
-
-# MIS-15 / G8: human-approval authorization/state/uniqueness tests before implementation.
+!/backend/migrations/versions/0008_approvals.py
+!/backend/migrations/versions/0009_trace_costs.py
+!/backend/pyproject.toml
+!/backend/requirements-dev.lock
+!/backend/requirements.lock
+!/backend/tests/conftest.py
 !/backend/tests/test_approval_api.py
 !/backend/tests/test_approval_concurrency.py
-!/frontend/src/features/reports/DirectorReview.test.tsx
-
-# Approved MIS-15: human approval capability, authentication and migration.
-!/backend/app/domain/approvals.py
-!/backend/app/application/approvals.py
-!/backend/app/api/auth.py
-!/backend/migrations/versions/0008_approvals.py
-!/frontend/src/features/reports/DirectorReview.tsx
-!/frontend/src/features/reports/ApprovalDialog.tsx
-
-# MIS-16 / G9: cost and execution-trace tests before implementation.
+!/backend/tests/test_briefing_loop.py
+!/backend/tests/test_browser_workflow.py
+!/backend/tests/test_classification.py
+!/backend/tests/test_configuration.py
 !/backend/tests/test_costs.py
+!/backend/tests/test_database_setup.py
+!/backend/tests/test_deployment_smoke.py
+!/backend/tests/test_health.py
+!/backend/tests/test_launch_rules.py
+!/backend/tests/test_launch_rules_api.py
+!/backend/tests/test_llm_gateway.py
+!/backend/tests/test_openai_gateway.py
+!/backend/tests/test_parallel_checks.py
+!/backend/tests/test_pipeline_lifecycle.py
+!/backend/tests/test_prompt_injection.py
+!/backend/tests/test_report_api.py
+!/backend/tests/test_report_persistence.py
+!/backend/tests/test_severity.py
+!/backend/tests/test_severity_api.py
+!/backend/tests/test_system_workflow.py
 !/backend/tests/test_trace_api.py
-!/frontend/src/features/reports/ExecutionTrace.test.tsx
-
-# Approved G9: exact costs and durable in-flight execution traces.
-!/backend/app/domain/costs.py
-!/backend/migrations/versions/0009_trace_costs.py
+!/compose.yaml
+!/docker/test.Dockerfile
+!/frontend/Dockerfile
+!/frontend/index.html
+!/frontend/nginx.conf
+!/frontend/package-lock.json
+!/frontend/package.json
+!/frontend/public/FONT-LICENSES.txt
+!/frontend/src/api/reports.ts
 !/frontend/src/api/traces.ts
+!/frontend/src/app/App.test.tsx
+!/frontend/src/app/App.tsx
+!/frontend/src/app/Icon.tsx
+!/frontend/src/app/styles.css
+!/frontend/src/features/reports/ApprovalDialog.tsx
+!/frontend/src/features/reports/DirectorReview.test.tsx
+!/frontend/src/features/reports/DirectorReview.tsx
+!/frontend/src/features/reports/ExecutionTrace.test.tsx
 !/frontend/src/features/reports/ExecutionTrace.tsx
+!/frontend/src/features/reports/ReportChecks.test.tsx
+!/frontend/src/features/reports/ReportChecks.tsx
+!/frontend/src/features/reports/ReportForm.test.tsx
+!/frontend/src/features/reports/ReportForm.tsx
+!/frontend/src/features/reports/ReportPriority.test.tsx
+!/frontend/src/features/reports/ReportWorkspace.tsx
+!/frontend/src/main.tsx
+!/frontend/tsconfig.json
+!/frontend/vite.config.ts
+!/scripts/smoke.py
+!/scripts/test.sh
