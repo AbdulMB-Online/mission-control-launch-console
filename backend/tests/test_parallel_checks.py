@@ -82,7 +82,7 @@ class MemoryReports:
     async def get(self, report_id):
         return self.report if self.report.id == report_id else None
 
-    async def update_priority(self, report, trace=None):
+    async def update_classification(self, report, trace, priority_trace):
         self.report = report
 
     async def update_checks(self, report, traces):
@@ -190,7 +190,9 @@ async def test_invalid_check_outputs_are_unknown_not_clean(report_payload, kind,
 @pytest.mark.parametrize("tone, flagged", [("calm", False), ("urgent", True), ("panic", True)])
 async def test_tone_is_detected_without_rewriting_severity_or_deadline(report_payload, tone, flagged):
     service, _, original = await file_report(report_payload)
-    original = await service.resolve_priority(original.id, "low")
+    original = await service.classify(original.id, ChecksGateway({"classification": {
+        "subsystem": "propulsion", "severity": "low", "rationale": "Valve response anomaly.",
+    }}))
     report = await service.run_checks(original.id, ChecksGateway({"tone": {"tone": tone, "rationale": "Tone observation."}}))
     check = next(item for item in report.checks if item.kind == "tone")
     assert check.details["tone"] == tone and check.flagged is flagged

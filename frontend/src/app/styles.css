@@ -74,8 +74,6 @@ h1 { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(43px, 4.2vw, 
 .section-icon>.icon { width: 20px; height: 20px; }
 .desk-header h2 { margin: 0 0 5px; color: #263d5f; font-size: 14px; font-weight: 600; }
 .desk-header p { color: var(--muted); font-size: 11px; margin: 0; }
-.pending-label { display: inline-flex; align-items: center; gap: 6px; color: #6f7b8c; font-size: 10px; white-space: nowrap; }
-.pending-label>span { width: 5px; height: 5px; border-radius: 50%; background: #b9c4d3; }
 .desk-body { position: relative; display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 20px 22px 31px; min-height: 352px; overflow: hidden; }
 .desk-grid { position: absolute; inset: 0; background-image: linear-gradient(#7592be08 1px, transparent 1px), linear-gradient(90deg, #7592be08 1px, transparent 1px); background-size: 28px 28px; mask-image: radial-gradient(ellipse 63% 63% at 50% 37%, black 25%, transparent 100%); }
 .report-illustration { position: relative; width: min(100%, 450px); height: auto; margin: -4px 0 1px; overflow: visible; }
@@ -224,7 +222,6 @@ h1 { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(43px, 4.2vw, 
   .mission-content { padding-inline: 26px; }
   .workspace-grid { grid-template-columns: minmax(0, 1fr) 253px; gap: 17px; }
   .desk-header { padding: 20px 18px; }
-  .pending-label { display: none; }
   .desk-footer { padding-inline: 18px; }
   .desk-footer>span:last-child { display: none; }
   .workflow-guide { grid-template-columns: 145px 1fr; gap: 22px; padding: 23px; }

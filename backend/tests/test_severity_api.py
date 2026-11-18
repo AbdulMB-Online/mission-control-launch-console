@@ -11,9 +11,11 @@ from sqlalchemy.engine import make_url
 
 from app.api.routes import get_reports
 from app.application.reports import ReportService
+from app.application.llm import LLMResult
 from app.domain.reports import ReportInput
 from app.infrastructure.db import Database
 from app.infrastructure.repository import SQLAlchemyReportStore
+from app.infrastructure.llm.fake_gateway import FakeGateway
 from app.main import create_app
 
 
@@ -116,7 +118,11 @@ async def test_resolved_priority_is_persisted_and_reload_does_not_reset_it(setti
             **{field: Decimal(report_payload[field]) for field in ("wind_knots", "temp_c", "fuel_pct")},
         }))
         service.clock = lambda: CREATED_AT + timedelta(days=2)
-        resolved = await service.resolve_priority(original.id, severity)
+        gateway = FakeGateway()
+        gateway.script("classification", None, LLMResult(provider="fake", payload={
+            "subsystem": "propulsion", "severity": severity, "rationale": "Valve response anomaly.",
+        }))
+        resolved = await service.classify(original.id, gateway)
         assert resolved.effective_severity == severity
     finally:
         await database.close()

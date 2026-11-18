@@ -5,7 +5,9 @@ from decimal import Decimal
 import pytest
 
 from app.application.reports import ReportService
+from app.application.llm import LLMResult
 from app.domain.reports import ReportInput
+from app.infrastructure.llm.fake_gateway import FakeGateway
 
 
 CREATED_AT = datetime(2026, 11, 15, 23, 58, tzinfo=UTC)
@@ -18,7 +20,10 @@ class MemoryReports:
     async def get(self, report_id):
         return self.report if self.report.id == report_id else None
 
-    async def update_priority(self, report, trace=None):
+    async def start_traces(self, traces):
+        pass
+
+    async def update_classification(self, report, trace, priority_trace):
         self.report = report
 
 
@@ -30,6 +35,14 @@ async def filed_report(payload):
         **{field: Decimal(payload[field]) for field in ("wind_knots", "temp_c", "fuel_pct")},
     }))
     return service, store, report
+
+
+async def classify_priority(service, report_id, severity):
+    gateway = FakeGateway()
+    gateway.script("classification", None, LLMResult(provider="fake", payload={
+        "subsystem": "propulsion", "severity": severity, "rationale": "Valve response anomaly.",
+    }))
+    return await service.classify(report_id, gateway)
 
 
 async def test_before_classification_priority_is_provisional_high(report_payload):
@@ -46,8 +59,7 @@ async def test_before_classification_priority_is_provisional_high(report_payload
 async def test_severity_mapping_is_anchored_to_submission_not_classification_time(report_payload, severity, minutes):
     service, store, original = await filed_report(report_payload)
     service.clock = lambda: CREATED_AT + timedelta(days=2)
-    # Internal application operation, never an engineer-facing API endpoint.
-    resolved = await service.resolve_priority(original.id, severity)
+    resolved = await classify_priority(service, original.id, severity)
     assert resolved.effective_severity == severity
     assert resolved.classified_severity == severity
     assert resolved.deadline_minutes == minutes
@@ -65,7 +77,7 @@ async def test_severity_mapping_is_anchored_to_submission_not_classification_tim
 ])
 async def test_each_violation_overrides_every_classification_to_high(report_payload, severity, field, value):
     service, store, original = await filed_report({**report_payload, field: value})
-    resolved = await service.resolve_priority(original.id, severity)
+    resolved = await classify_priority(service, original.id, severity)
     assert resolved.classified_severity == severity
     assert resolved.effective_severity == "high"
     assert resolved.deadline_minutes == 5
@@ -78,7 +90,7 @@ async def test_each_violation_overrides_every_classification_to_high(report_payl
 @pytest.mark.parametrize("invalid", [None, "critical", "LOW", True, {"severity": "low"}])
 async def test_invalid_severity_falls_back_to_high_without_changing_safety_facts(report_payload, invalid):
     service, _, original = await filed_report(report_payload)
-    resolved = await service.resolve_priority(original.id, invalid)
+    resolved = await classify_priority(service, original.id, invalid)
     assert resolved.effective_severity == "high"
     assert resolved.deadline_minutes == 5
     assert resolved.brief_by_at == CREATED_AT + timedelta(minutes=5)
